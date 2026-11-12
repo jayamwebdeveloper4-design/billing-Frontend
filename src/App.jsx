@@ -24,6 +24,7 @@ const SMTPSetting = lazy(() => import("./pages/SMTPSetting"));
 const ReportManagement = lazy(() => import("./pages/ReportManagement"));
 const Proforma = lazy(() => import("./pages/Proforma"));
 const Invoices = lazy(() => import("./pages/Invoices"));
+const Expenses = lazy(() => import("./pages/Expenses/Expenses"));
 function App() {
   const basename = import.meta.env.VITE_BASENAME || "/";
   const { isAuthenticated, loading } = useAuth();
@@ -94,6 +95,7 @@ function App() {
             <Route path="/gst-settings" element={<GstSettings />} />
             <Route path="/proforma" element={<Proforma />} />
             <Route path="/invoices" element={<Invoices />} />
+            <Route path="/expenses" element={<Expenses />} />
             <Route path="/revenue" element={<RevenueManagement />} />
             <Route path="/reports" element={<ReportManagement />} />
             <Route path="/smtp-settings" element={<SMTPSetting />} />

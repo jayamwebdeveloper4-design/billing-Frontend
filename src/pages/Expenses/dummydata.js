@@ -1,0 +1,88 @@
+export const expenseCategories = [
+  "Salary",
+  "Miscellaneous",
+  "Internet bill",
+  "Office rent",
+  "Office Maintenance",
+  "Furniture",
+];
+
+export const expenses = [
+  {
+    id: 1,
+    name: "Frontend Developer Salary",
+    amount: 45000,
+    date: "2026-11-01",
+    category: "Salary",
+  },
+  {
+    id: 2,
+    name: "MERN Stack Developer Salary",
+    amount: 55000,
+    date: "2026-11-01",
+    category: "Salary",
+  },
+  {
+    id: 3,
+    name: "Client Lunch Meeting",
+    amount: 1850,
+    date: "2026-11-04",
+    category: "Miscellaneous",
+  },
+  {
+    id: 4,
+    name: "Office Pantry & Coffee Supplies",
+    amount: 1200,
+    date: "2026-11-07",
+    category: "Miscellaneous",
+  },
+  {
+    id: 5,
+    name: "Office Fiber Broadband Plan",
+    amount: 1180,
+    date: "2026-11-03",
+    category: "Internet bill",
+  },
+  {
+    id: 6,
+    name: "Backup Wireless Dongle Recharge",
+    amount: 599,
+    date: "2026-11-09",
+    category: "Internet bill",
+  },
+  {
+    id: 7,
+    name: "Monthly Commercial Office Rent",
+    amount: 25000,
+    date: "2026-11-02",
+    category: "Office rent",
+  },
+  {
+    id: 8,
+    name: "AC Servicing & Filter Cleaning",
+    amount: 1500,
+    date: "2026-11-06",
+    category: "Office Maintenance",
+  },
+  {
+    id: 9,
+    name: "Monthly Housekeeping & Cleaning",
+    amount: 3000,
+    date: "2026-11-10",
+    category: "Office Maintenance",
+  },
+  {
+    id: 10,
+    name: "Ergonomic Mesh Office Chair",
+    amount: 6500,
+    date: "2026-11-05",
+    category: "Furniture",
+  },
+  {
+    id: 11,
+    name: "Wooden Workstation Desk",
+    amount: 8200,
+    date: "2026-11-11",
+    category: "Furniture",
+  },
+];

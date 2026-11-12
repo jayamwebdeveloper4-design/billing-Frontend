@@ -16,6 +16,11 @@ const Addproject = ({ customerData }) => {
     const [formData, setFormData] = useState(initialForm);
     const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const serviceOptions = [...(customerData?.orders || [])]
+        .sort((a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime())
+        .flatMap((order) => order.products || [])
+        .map((product) => product.productName || product.product)
+        .filter((serviceName, index, services) => serviceName && services.indexOf(serviceName) === index);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -106,12 +111,15 @@ const Addproject = ({ customerData }) => {
             .map((product) => product.productName || product.product)
             .filter(Boolean)
             .join(", ");
+        const selectedService = (latestOrder?.products || [])
+            .map((product) => product.productName || product.product)
+            .find(Boolean) || "";
         const amount = latestOrder?.totalPrice;
 
         setFormData({
             ...initialForm,
             ProjectName: serviceName,
-            serviceName,
+            serviceName: selectedService,
             Budget: {
                 currency: "₹",
                 amount: Number.isFinite(Number(amount)) && amount !== undefined ? String(amount) : "",
@@ -202,19 +210,24 @@ const Addproject = ({ customerData }) => {
                                 </div>
                             </div>
 
-                            <div>
+                            <div> 
                                 <label htmlFor="service-name" className="mb-2 block text-sm font-medium text-on-surface">
                                     Service Name
                                 </label>
-                                <input
+                                <select
                                     id="service-name"
-                                    type="text"
                                     name="serviceName"
                                     value={formData.serviceName}
                                     onChange={handleChange}
-                                    placeholder="Enter service name"
                                     className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                />
+                                >
+                                    <option value="">Select a service</option>
+                                    {serviceOptions.map((serviceName) => (
+                                        <option key={serviceName} value={serviceName}>
+                                            {serviceName}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>
