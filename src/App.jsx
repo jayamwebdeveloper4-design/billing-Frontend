@@ -25,6 +25,8 @@ const ReportManagement = lazy(() => import("./pages/ReportManagement"));
 const Proforma = lazy(() => import("./pages/Proforma"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const Expenses = lazy(() => import("./pages/Expenses/Expenses"));
+const EmployeeTimeSheet = lazy(() => import("./pages/Expenses/EmployeeTimeSheet"));
+const ProjectTimeSheet = lazy(() => import("./pages/Expenses/ProjectTimeSheet"));
 function App() {
   const basename = import.meta.env.VITE_BASENAME || "/";
   const { isAuthenticated, loading } = useAuth();
@@ -96,6 +98,22 @@ function App() {
             <Route path="/proforma" element={<Proforma />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/expenses" element={<Expenses />} />
+            <Route
+              path="/expenses/employee-timesheets/:employeeId"
+              element={<EmployeeTimeSheet />}
+            />
+            <Route
+              path="/expenses/project-timesheets/:projectId"
+              element={<ProjectTimeSheet />}
+            />
+            <Route
+              path="/employee-timesheets"
+              element={<Navigate to="/expenses?view=employees" replace />}
+            />
+            <Route
+              path="/project-timesheets"
+              element={<Navigate to="/expenses?view=projects" replace />}
+            />
             <Route path="/revenue" element={<RevenueManagement />} />
             <Route path="/reports" element={<ReportManagement />} />
             <Route path="/smtp-settings" element={<SMTPSetting />} />
