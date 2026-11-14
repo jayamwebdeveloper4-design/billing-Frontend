@@ -5641,8 +5641,8 @@ const RenewalPayModal = ({ reminder, reminders = [], onClose, onSave }) => {
                   {[
                     { id: "full", label: "Full / Normal", icon: "check_circle" },
                     { id: "advance", label: "Advance", icon: "arrow_circle_right", disabled: alreadyHasAdvance },
-                    { id: "mid", label: "Milestone", icon: "timelapse" },
-                    { id: "final", label: "Final Balance", icon: "task_alt" }
+                    { id: "mid", label: "Next Payment", icon: "timelapse" },
+                    { id: "final", label: "Final Amount", icon: "task_alt" }
                   ].map((stage) => (
                     <button
                       key={stage.id}
@@ -5664,22 +5664,22 @@ const RenewalPayModal = ({ reminder, reminders = [], onClose, onSave }) => {
                 </div>
                 {alreadyHasAdvance && paymentStage === 'advance' && (
                   <p className="text-[11px] text-amber-600 font-bold mt-1">
-                    ⚠️ Advance already paid. Please select Milestone or Final Balance.
+                    ⚠️ Advance already paid. Please select Next Payment or Final Amount.
                   </p>
                 )}
                 {paymentStage === 'advance' && !alreadyHasAdvance && (
                   <p className="text-[11px] text-amber-600 font-medium mt-1">
-                    Records advance milestone. You can generate a dedicated Advance Invoice.
+                    Records advance 1st payment. You can generate a dedicated Advance Invoice.
                   </p>
                 )}
                 {paymentStage === 'mid' && (
                   <p className="text-[11px] text-blue-600 font-medium mt-1">
-                    Records part payment milestone. You can generate an installment invoice.
+                    Records sequential part payment (Second / Third Payment). You can generate an installment invoice.
                   </p>
                 )}
                 {paymentStage === 'final' && (
                   <p className="text-[11px] text-emerald-600 font-medium mt-1">
-                    Final settlement. You can generate a Consolidated Invoice showing all payment stages.
+                    Final settlement payment.
                   </p>
                 )}
               </div>

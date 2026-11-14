@@ -16,6 +16,7 @@ import { getTemplate } from "../api/templateApi";
 import { getProducts } from "../api/productApi";
 import { getGstSettings } from "../api/gstSettingsApi";
 import Addproject from "./AddProject/Addproject";
+import PaymentManagement from "./Costomers/paymentMenagement.jsx";
 
 const getCatalogPrices = (p) => {
   return {
@@ -1110,6 +1111,128 @@ const Customers = ({ isWebsiteOnly = false }) => {
     setIsHistoryPaymentModalOpen(true);
   };
 
+  const handleSavePaymentFromManagement = async (paymentData, targetOrder, orderIdx) => {
+    try {
+      const orders = formData.orders ? [...formData.orders] : [];
+      const ordIdx = (orderIdx !== undefined && orderIdx >= 0)
+        ? orderIdx
+        : orders.findIndex(o => String(o._id) === String(targetOrder?._id));
+      if (ordIdx === -1 || !orders[ordIdx]) {
+        toast.error("Order not found");
+        return;
+      }
+
+      const orderToUpdate = { ...orders[ordIdx] };
+      const currentPayments = orderToUpdate.payments ? [...orderToUpdate.payments] : [];
+      currentPayments.push(paymentData);
+      orderToUpdate.payments = currentPayments;
+
+      const totalPaid = currentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      let resolvedPaymentStatus = totalPaid >= (orderToUpdate.totalPrice || 0) ? "Fully Paid" : "Partially Paid";
+      if (paymentData.paymentStage === 'advance' || paymentData.paymentStage === 'mid') {
+        resolvedPaymentStatus = "Partially Paid";
+      } else if (paymentData.paymentStage === 'final' || paymentData.paymentStage === 'full') {
+        resolvedPaymentStatus = "Fully Paid";
+      }
+      orderToUpdate.paymentStatus = resolvedPaymentStatus;
+
+      orders[ordIdx] = orderToUpdate;
+
+      const targetCustomerId = editingId || formData._id || selectedCustomer?._id;
+      const gstUpdate = paymentData.withGst
+        ? { gstin: formData.gstin }
+        : {};
+
+      const updatedCust = await updateCustomer(targetCustomerId, { ...formData, ...gstUpdate, orders });
+
+      const updatedState = {
+        ...updatedCust,
+        email: Array.isArray(updatedCust.email) ? updatedCust.email.join(', ') : (updatedCust.email || ""),
+        phone: Array.isArray(updatedCust.phone) ? updatedCust.phone.join(', ') : (updatedCust.phone || ""),
+        contactPerson: updatedCust.contactPerson || "",
+        country: updatedCust.country || "",
+        state: updatedCust.state || "Tamil Nadu",
+        gstin: updatedCust.gstin || "",
+        address: updatedCust.address || "",
+        notes: updatedCust.notes || "",
+        orders: updatedCust.orders || [],
+      };
+      setFormData(updatedState);
+      setCustomers(prev => prev.map(c => (c._id === targetCustomerId ? updatedCust : c)));
+      if (selectedCustomer && selectedCustomer._id === targetCustomerId) {
+        setSelectedCustomer(updatedCust);
+      }
+      fetchData();
+      toast.success("Payment recorded successfully");
+      setSelectedPaymentDetail(null);
+
+      // Prompt to generate invoice or email
+      if (orderToUpdate.paymentStatus === "Partially Paid") {
+        setCustomerInvoicePrompt({
+          isOpen: true,
+          title: "Generate Partial Invoice?",
+          message: `This order is partially paid. Do you want to generate an invoice for this paid amount (₹${paymentData.amount.toLocaleString()})?`,
+          config: {
+            isOpen: true,
+            order: orderToUpdate,
+            customer: updatedState,
+            selectedOrderIds: [String(orderToUpdate._id)],
+            paymentData: {
+              amount: paymentData.amount,
+              description: paymentData.description,
+              date: paymentData.date,
+              withGst: paymentData.withGst,
+              invoiceCategory: ['advance', 'mid'].includes(paymentData.paymentStage) ? 'installment' : 'regular',
+              includePaymentHistory: false,
+              products: orderToUpdate.products || [],
+              domainUrl: orderToUpdate.domainUrl,
+              orderId: orderToUpdate._id,
+              selectedOrderIds: [String(orderToUpdate._id)]
+            },
+            withGst: paymentData.withGst,
+            state: updatedState.state || "Tamil Nadu",
+            gstin: updatedState.gstin || "",
+            invoiceDate: paymentData.date,
+            customInvoiceNo: "",
+            paymentStatus: "Partially Paid",
+            isSaving: false,
+            step: "actions",
+            pdfBlob: null,
+            pdfUrl: null,
+            filename: "",
+          }
+        });
+      } else {
+        setCustomerInvoicePrompt({
+          isOpen: true,
+          title: "Generate Invoice?",
+          message: `Payment complete! Do you want to generate the final consolidated invoice?`,
+          config: {
+            isOpen: true,
+            order: orderToUpdate,
+            customer: updatedState,
+            selectedOrderIds: [String(orderToUpdate._id)],
+            paymentData: null,
+            withGst: paymentData.withGst,
+            state: updatedState.state || "Tamil Nadu",
+            gstin: updatedState.gstin || "",
+            invoiceDate: paymentData.date,
+            customInvoiceNo: "",
+            paymentStatus: "Paid",
+            isSaving: false,
+            step: "actions",
+            pdfBlob: null,
+            pdfUrl: null,
+            filename: "",
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Failed to update payment:", err);
+      toast.error(err.response?.data?.message || "Failed to record payment");
+    }
+  };
+
   const handleDownloadFromDetailModal = (detail) => {
     setSelectedPaymentDetail(null);
     const targetOrder = detail.order || (detail.orderIdx !== undefined ? formData.orders?.[detail.orderIdx] : null);
@@ -1117,40 +1240,64 @@ const Customers = ({ isWebsiteOnly = false }) => {
 
     const isFullyPaid = (detail.balanceDue === 0);
     const orderPayments = targetOrder.payments || [];
-    const latestPayment = detail.payment || orderPayments[orderPayments.length - 1];
+    const latestPayment = detail.specificPayment || detail.payment || orderPayments[orderPayments.length - 1];
 
-    const isFinalStage = isFullyPaid || latestPayment?.paymentStage === 'final';
-    const isInstStage = ['advance', 'mid'].includes(latestPayment?.paymentStage);
-    const invCat = isFinalStage ? 'consolidated' : (isInstStage ? 'installment' : 'regular');
+    // If a separate installment payment invoice is requested
+    if (detail.isSeparateInvoice && detail.specificPayment) {
+      const sp = detail.specificPayment;
+      const paymentDataObj = {
+        paymentId: sp._id || `${targetOrder._id}_pay_${sp.date || currentDate}`,
+        amount: Number(sp.amount) || 0,
+        description: sp.description || "",
+        date: sp.date || currentDate,
+        withGst: !!sp.withGst,
+        paymentType: sp.paymentType || "base",
+        paymentStage: sp.paymentStage || "mid",
+        stageNumber: sp.stageNumber,
+        invoiceCategory: "installment",
+        includePaymentHistory: false,
+        products: targetOrder.products || [],
+        domainUrl: targetOrder.domainUrl,
+        orderId: targetOrder._id,
+        selectedOrderIds: [String(targetOrder._id)],
+      };
 
-    const paymentDataObj = {
-      paymentId: latestPayment?._id || `${targetOrder._id}_pay_${latestPayment?.date || currentDate}`,
-      amount: isFinalStage ? (targetOrder.totalPrice || detail.totalPaid) : (latestPayment?.amount || detail.totalPaid),
-      description: latestPayment?.description || "",
-      date: latestPayment?.date || currentDate,
-      withGst: !!latestPayment?.withGst,
-      paymentType: latestPayment?.paymentType || "base",
-      paymentStage: latestPayment?.paymentStage || (isFinalStage ? 'final' : 'full'),
-      invoiceCategory: invCat,
-      includePaymentHistory: isFinalStage,
-      products: targetOrder.products || [],
-      domainUrl: targetOrder.domainUrl,
-      orderId: targetOrder._id,
-      selectedOrderIds: [String(targetOrder._id)],
-    };
+      setDownloadModalConfig({
+        isOpen: true,
+        order: targetOrder,
+        customer: formData,
+        selectedOrderIds: [String(targetOrder._id)],
+        paymentData: paymentDataObj,
+        withGst: !!sp.withGst,
+        state: formData.state || "Tamil Nadu",
+        gstin: formData.gstin || "",
+        invoiceDate: sp.date || currentDate,
+        customInvoiceNo: "",
+        paymentStatus: "Paid",
+        includePaymentHistory: false,
+        isSaving: false,
+        step: "actions",
+        pdfBlob: null,
+        pdfUrl: null,
+        filename: "",
+      });
+      return;
+    }
 
+    // Complete / Full payment invoice without history breakdown table
     setDownloadModalConfig({
       isOpen: true,
       order: targetOrder,
       customer: formData,
       selectedOrderIds: [String(targetOrder._id)],
-      paymentData: isFinalStage ? null : paymentDataObj,
-      withGst: !!latestPayment?.withGst,
+      paymentData: null,
+      withGst: !!targetOrder.withGst || !!latestPayment?.withGst,
       state: formData.state || "Tamil Nadu",
       gstin: formData.gstin || "",
-      invoiceDate: latestPayment?.date || currentDate,
+      invoiceDate: latestPayment?.date || targetOrder.orderDate || currentDate,
       customInvoiceNo: "",
       paymentStatus: isFullyPaid ? "Paid" : "Partially Paid",
+      includePaymentHistory: false,
       isSaving: false,
       step: "actions",
       pdfBlob: null,
@@ -3451,7 +3598,13 @@ const Customers = ({ isWebsiteOnly = false }) => {
                                             ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
                                             : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
                                       }`}>
-                                        {payment.paymentStage === 'advance' ? 'Advance' : payment.paymentStage === 'mid' ? `Milestone #${payment.stageNumber || 1}` : 'Final Settlement'}
+                                        {payment.paymentStage === 'advance'
+                                          ? 'Advance'
+                                          : payment.paymentStage === 'final'
+                                          ? 'Final Amount'
+                                          : payment.paymentStage === 'mid'
+                                          ? (payment.stageNumber === 2 ? 'Second Payment' : payment.stageNumber === 3 ? 'Third Payment' : payment.stageNumber === 4 ? 'Fourth Payment' : `Payment #${payment.stageNumber || 2}`)
+                                          : 'Payment'}
                                       </span>
                                     )}
                                   </div>
@@ -4679,8 +4832,8 @@ const Customers = ({ isWebsiteOnly = false }) => {
                           {[
                             { id: "full", label: "Full / Normal", icon: "check_circle" },
                             { id: "advance", label: "Advance", icon: "arrow_circle_right", disabled: alreadyHasAdvance },
-                            { id: "mid", label: "Milestone", icon: "timelapse" },
-                            { id: "final", label: "Final Balance", icon: "task_alt" }
+                            { id: "mid", label: "Next Payment", icon: "timelapse" },
+                            { id: "final", label: "Final Amount", icon: "task_alt" }
                           ].map((stage) => (
                             <button
                               key={stage.id}
@@ -4702,22 +4855,22 @@ const Customers = ({ isWebsiteOnly = false }) => {
                         </div>
                         {alreadyHasAdvance && historyPaymentEdit.paymentStage === 'advance' && (
                           <p className="text-[11px] text-amber-600 font-bold">
-                            ⚠️ Advance is already recorded for this order. Please select Milestone or Final Balance.
+                            ⚠️ Advance is already recorded for this order. Please select Next Payment or Final Amount.
                           </p>
                         )}
                         {historyPaymentEdit.paymentStage === 'advance' && !alreadyHasAdvance && (
                           <p className="text-[11px] text-amber-600 font-medium">
-                            Advance Milestone Payment. You can generate an advance stage invoice.
+                            Advance 1st Payment. You can generate an advance stage invoice.
                           </p>
                         )}
                         {historyPaymentEdit.paymentStage === 'mid' && (
                           <p className="text-[11px] text-blue-600 font-medium">
-                            Milestone Part Payment. You can generate an installment invoice.
+                            Sequential Part Payment (Second / Third Payment). You can generate an installment invoice.
                           </p>
                         )}
                         {historyPaymentEdit.paymentStage === 'final' && (
                           <p className="text-[11px] text-emerald-600 font-medium">
-                            Final Balance Settlement. A Consolidated Invoice with full payment history will be generated.
+                            Final Amount Settlement.
                           </p>
                         )}
                       </div>
@@ -5380,162 +5533,16 @@ const Customers = ({ isWebsiteOnly = false }) => {
 
       {/* Payment Management & Balance Detail Modal */}
       {selectedPaymentDetail && (
-        <div className="fixed inset-0 z-110 flex items-center justify-center p-md bg-on-background/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-[650px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            
-            {/* Header */}
-            <div className="p-md md:p-lg border-b border-outline-variant/30 bg-surface-container-low flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-sm text-primary">
-                <span className="material-symbols-outlined text-[26px]">account_balance_wallet</span>
-                <div>
-                  <h3 className="text-lg font-black text-on-surface">Payment Management</h3>
-                  <p className="text-xs text-primary font-bold">
-                    {selectedPaymentDetail.customer?.name || formData.name} • {selectedPaymentDetail.order?.domainUrl || selectedPaymentDetail.payment.domainUrl || "Order Services"}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedPaymentDetail(null)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-surface-variant rounded-full transition-colors cursor-pointer text-on-surface-variant"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-md md:p-lg space-y-md overflow-y-auto custom-scrollbar flex-1">
-              
-              {/* Financial Metrics Cards */}
-              <div className="grid grid-cols-3 gap-sm">
-                <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/40 text-center">
-                  <span className="text-[10px] uppercase font-black text-on-surface-variant tracking-wider block">Order Price</span>
-                  <span className="text-base md:text-lg font-black text-on-surface">
-                    ₹{(selectedPaymentDetail.totalOrderPrice || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-center">
-                  <span className="text-[10px] uppercase font-black text-emerald-700 tracking-wider block">Total Paid</span>
-                  <span className="text-base md:text-lg font-black text-emerald-600">
-                    ₹{(selectedPaymentDetail.totalPaid || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className={`p-3 rounded-xl border text-center ${
-                  selectedPaymentDetail.balanceDue > 0
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-700"
-                    : "bg-primary/10 border-primary/20 text-primary"
-                }`}>
-                  <span className="text-[10px] uppercase font-black tracking-wider block">
-                    {selectedPaymentDetail.balanceDue > 0 ? "Balance Due" : "Settled"}
-                  </span>
-                  <span className="text-base md:text-lg font-black">
-                    ₹{(selectedPaymentDetail.balanceDue || 0).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Order Status Badge & Services info */}
-              <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/30 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-on-surface block">
-                    {selectedPaymentDetail.order?.products?.map(p => p.product).join(', ') || "Services"}
-                  </span>
-                  {selectedPaymentDetail.order?.domainUrl && (
-                    <span className="text-[11px] text-primary font-bold">{selectedPaymentDetail.order.domainUrl}</span>
-                  )}
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${
-                  selectedPaymentDetail.balanceDue === 0
-                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                    : "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                }`}>
-                  {selectedPaymentDetail.balanceDue === 0 ? "Fully Paid" : "Partially Paid"}
-                </span>
-              </div>
-
-              {/* Milestone Breakdown List */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block">
-                  Recorded Milestones & Payments ({selectedPaymentDetail.paymentsList?.length || 1})
-                </span>
-                <div className="space-y-1.5 max-h-[200px] overflow-y-auto custom-scrollbar">
-                  {(selectedPaymentDetail.paymentsList || [selectedPaymentDetail.payment]).map((p, pIdx) => {
-                    const isAdvance = p.paymentStage === 'advance';
-                    const isMid = p.paymentStage === 'mid';
-                    const isFinal = p.paymentStage === 'final';
-                    const stageLabel = isAdvance ? 'Advance' : (isMid ? `Milestone #${p.stageNumber || pIdx}` : (isFinal ? 'Final Settlement' : 'Regular'));
-
-                    return (
-                      <div
-                        key={p._id || pIdx}
-                        className="flex items-center justify-between p-2.5 rounded-xl border bg-surface-container-low border-outline-variant/30"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${
-                            isAdvance ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' :
-                            isMid ? 'bg-blue-500/10 text-blue-600 border-blue-500/30' :
-                            isFinal ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' :
-                            'bg-primary/10 text-primary border-primary/20'
-                          }`}>
-                            {stageLabel}
-                          </span>
-                          <span className="text-xs font-semibold text-on-surface">{formatDate(p.date)}</span>
-                          {p.description && (
-                            <span className="text-[11px] text-on-surface-variant italic truncate max-w-[150px]">
-                              "{p.description}"
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs font-black text-emerald-600">
-                          ₹{(p.amount || 0).toLocaleString()}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Action Buttons */}
-            <div className="p-md md:p-lg border-t border-outline-variant/30 bg-surface-container-low flex items-center justify-between gap-sm shrink-0">
-              <button
-                type="button"
-                onClick={() => handleDownloadFromDetailModal(selectedPaymentDetail)}
-                className="px-md py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-primary/20"
-              >
-                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                Generate Invoice
-              </button>
-
-              <div className="flex items-center gap-sm">
-                {selectedPaymentDetail.balanceDue > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPayBalance(selectedPaymentDetail)}
-                    className="px-lg py-2 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">payments</span>
-                    Pay Balance (₹{selectedPaymentDetail.balanceDue.toLocaleString()})
-                  </button>
-                ) : (
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    Order Completed
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedPaymentDetail(null)}
-                  className="px-md py-2 rounded-xl font-bold text-xs text-on-surface-variant hover:bg-surface-variant transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
+        <PaymentManagement
+          isOpen={!!selectedPaymentDetail}
+          onClose={() => setSelectedPaymentDetail(null)}
+          customer={selectedPaymentDetail.customer || formData}
+          order={selectedPaymentDetail.order}
+          orderIdx={selectedPaymentDetail.orderIdx}
+          gstRates={gstRates}
+          onSavePayment={handleSavePaymentFromManagement}
+          onGenerateInvoice={handleDownloadFromDetailModal}
+        />
       )}
 
       {/* Confirmation Modal for Deleting Invoice */}

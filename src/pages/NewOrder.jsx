@@ -4049,8 +4049,8 @@ const calculateEndDate = (startDateStr, cycle) => {
                       {[
                         { id: "full", label: "Full / Normal", icon: "check_circle" },
                         { id: "advance", label: "Advance", icon: "arrow_circle_right", disabled: alreadyHasAdvance },
-                        { id: "mid", label: "Milestone", icon: "timelapse" },
-                        { id: "final", label: "Final Balance", icon: "task_alt" }
+                        { id: "mid", label: "Next Payment", icon: "timelapse" },
+                        { id: "final", label: "Final Amount", icon: "task_alt" }
                       ].map((stage) => (
                         <button
                           key={stage.id}
@@ -4072,22 +4072,22 @@ const calculateEndDate = (startDateStr, cycle) => {
                     </div>
                     {alreadyHasAdvance && paymentForm.paymentStage === 'advance' && (
                       <p className="text-[11px] text-amber-600 font-bold">
-                        ⚠️ Advance already paid for this order. Please choose Milestone or Final Balance.
+                        ⚠️ Advance already paid for this order. Please choose Next Payment or Final Amount.
                       </p>
                     )}
                     {paymentForm.paymentStage === 'advance' && !alreadyHasAdvance && (
                       <p className="text-[11px] text-amber-600 font-medium">
-                        Advance Payment Milestone. An advance invoice can be issued.
+                        Advance 1st Payment. An advance invoice can be issued.
                       </p>
                     )}
                     {paymentForm.paymentStage === 'mid' && (
                       <p className="text-[11px] text-blue-600 font-medium">
-                        Milestone Part Payment. An installment invoice can be issued.
+                        Sequential Part Payment (Second / Third Payment). An installment invoice can be issued.
                       </p>
                     )}
                     {paymentForm.paymentStage === 'final' && (
                       <p className="text-[11px] text-emerald-600 font-medium">
-                        Final Balance Payment. A Consolidated Invoice showing all previous payments can be generated.
+                        Final Amount Settlement.
                       </p>
                     )}
                   </div>
