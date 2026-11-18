@@ -46,7 +46,7 @@ const getPaymentBadgeInfo = (p, idx) => {
   };
 };
 
-const PaymentManagement = ({
+export const PaymentManagement = ({
   isOpen,
   onClose,
   customer = {},
@@ -91,6 +91,7 @@ const PaymentManagement = ({
   );
 
   const isPaidZero = totalPaid === 0;
+  const isFullyPaid = balanceDue === 0 && totalPaid > 0;
 
   // Next payment ordinal calculation:
   // e.g. If 1 payment exists (Advance), next is 2 -> "Second Payment"
@@ -115,43 +116,65 @@ const PaymentManagement = ({
   const defaultOption = isPaidZero ? "full" : balanceDue > 0 ? "final" : "mid";
 
   // Form states
-  const [paymentOption, setPaymentOption] = useState(defaultOption);
+  const [paymentOption, setPaymentOption] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(currentDate);
   const [description, setDescription] = useState("");
   const [withGst, setWithGst] = useState(false);
+  const [gstin, setGstin] = useState(customer.gstin || "");
+  const [gstinInput, setGstinInput] = useState(customer.gstin || "");
+  const [isGstConfirmed, setIsGstConfirmed] = useState(Boolean(customer.gstin?.trim()));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPaymentIndex, setSelectedPaymentIndex] = useState(null);
 
   // Synchronize defaults whenever order or modal changes
   useEffect(() => {
-    const initialOpt = isPaidZero ? "full" : balanceDue > 0 ? "final" : "mid";
-    setPaymentOption(initialOpt);
-
-    const initialAmount =
-      initialOpt === "full"
-        ? totalOrderPrice
-        : initialOpt === "final"
-        ? balanceDue
-        : "";
-    setAmount(initialAmount ? String(initialAmount) : "");
-
+    // Default to unselected so user explicitly chooses payment stage
+    setPaymentOption("");
+    setAmount("");
+    setDescription("");
     setPaymentDate(currentDate);
-
-    const domain = order.domainUrl || "services";
-    const initialDesc =
-      initialOpt === "full"
-        ? `Full payment for ${domain}`
-        : initialOpt === "advance"
-        ? `Advance payment for ${domain}`
-        : initialOpt === "mid"
-        ? `${nextPaymentLabel} for ${domain}`
-        : `Final settlement for ${domain}`;
-    setDescription(initialDesc);
     setWithGst(false);
+    const initialCustGstin = (customer.gstin || "").trim();
+    setGstin(initialCustGstin);
+    setGstinInput(initialCustGstin);
+    setIsGstConfirmed(Boolean(initialCustGstin));
     setIsSubmitting(false);
     setSelectedPaymentIndex(null);
-  }, [isOpen, order._id, isPaidZero, totalOrderPrice, balanceDue, nextPaymentLabel]);
+  }, [isOpen, order._id, isPaidZero, totalOrderPrice, balanceDue, nextPaymentLabel, customer.gstin]);
+
+  const handleAddGstin = () => {
+    const trimmed = (gstinInput || "").trim();
+    if (!trimmed) {
+      alert("Please enter a valid GST number.");
+      return;
+    }
+    setGstin(trimmed);
+    setIsGstConfirmed(true);
+  };
+
+  const handleEditGstin = () => {
+    setGstinInput(gstin);
+    setIsGstConfirmed(false);
+  };
+
+  const isInterState =
+    (customer.state || "Tamil Nadu").toLowerCase().trim() !== "tamil nadu";
+  const igstRateVal = Number(gstRates.igst || 18);
+  const cgstRateVal = Number(gstRates.cgst || 9);
+  const sgstRateVal = Number(gstRates.sgst || 9);
+  const totalGstRate = isInterState ? igstRateVal : (cgstRateVal + sgstRateVal);
+
+  // Total order price & balance due with GST
+  const orderTaxValue = totalOrderPrice * (totalGstRate / 100);
+  const displayOrderTotalPrice = withGst
+    ? totalOrderPrice + orderTaxValue
+    : totalOrderPrice;
+
+  const balanceTaxValue = balanceDue * (totalGstRate / 100);
+  const displayBalanceDueWithGst = withGst
+    ? balanceDue + balanceTaxValue
+    : balanceDue;
 
   // Handle option switch
   const handleOptionChange = (newOpt) => {
@@ -159,31 +182,44 @@ const PaymentManagement = ({
     const domain = order.domainUrl || "services";
 
     if (newOpt === "full") {
-      setAmount(totalOrderPrice > 0 ? String(totalOrderPrice) : "");
+      const fullVal = withGst ? (totalOrderPrice + orderTaxValue) : totalOrderPrice;
+      setAmount(fullVal > 0 ? String(Math.round(fullVal)) : "");
       setDescription(`Full payment for ${domain}`);
     } else if (newOpt === "final") {
-      setAmount(balanceDue > 0 ? String(balanceDue) : "");
+      const finalVal = withGst ? (balanceDue + balanceTaxValue) : balanceDue;
+      setAmount(finalVal > 0 ? String(Math.round(finalVal)) : "");
       setDescription(`Final settlement for ${domain}`);
     } else if (newOpt === "advance") {
+      setAmount("");
       setDescription(`Advance payment for ${domain}`);
     } else if (newOpt === "mid") {
+      setAmount("");
       setDescription(`${nextPaymentLabel} for ${domain}`);
+    } else {
+      setAmount("");
+      setDescription("");
     }
   };
 
   // Base and GST calculations
   const parsedAmount = Math.max(0, Number(amount) || 0);
-  const isInterState =
-    (customer.state || "Tamil Nadu").toLowerCase().trim() !== "tamil nadu";
-  const cgst = parsedAmount * (Number(gstRates.cgst || 9) / 100);
-  const sgst = parsedAmount * (Number(gstRates.sgst || 9) / 100);
-  const igst = parsedAmount * (Number(gstRates.igst || 18) / 100);
-  const taxValue = isInterState ? igst : cgst + sgst;
-  const totalWithGst = withGst ? parsedAmount + taxValue : parsedAmount;
+  // When With GST is active, the entered amount in the input includes GST
+  const baseAmount = withGst
+    ? (totalGstRate > 0 ? parsedAmount / (1 + totalGstRate / 100) : parsedAmount)
+    : parsedAmount;
+  const taxValue = withGst ? parsedAmount - baseAmount : 0;
+  const totalWithGst = parsedAmount;
+
+  // Active display payable amount (reflects GST if selected)
+  const displayPayAmount = parsedAmount;
+  const formattedPayAmount = displayPayAmount.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 
   const actionButtonText = isPaidZero
-    ? `Pay${parsedAmount > 0 ? ` (₹${parsedAmount.toLocaleString()})` : ""}`
-    : `Update${parsedAmount > 0 ? ` (₹${parsedAmount.toLocaleString()})` : ""}`;
+    ? `Pay${displayPayAmount > 0 ? ` (₹${formattedPayAmount})` : ""}`
+    : `Update${displayPayAmount > 0 ? ` (₹${formattedPayAmount})` : ""}`;
 
   // Payment status badge
   const statusBadge =
@@ -195,21 +231,39 @@ const PaymentManagement = ({
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    if (isFullyPaid) return;
+    if (!paymentOption) {
+      alert("Please select a payment option.");
+      return;
+    }
     if (!amount || parsedAmount <= 0) {
       alert("Please enter a valid payment amount.");
       return;
+    }
+
+    let activeGstin = gstin.trim();
+    if (withGst) {
+      if (!isGstConfirmed && gstinInput.trim()) {
+        activeGstin = gstinInput.trim();
+        setGstin(activeGstin);
+        setIsGstConfirmed(true);
+      } else if (!isGstConfirmed || !activeGstin) {
+        alert("Please enter and add a valid GST number to proceed with GST.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
       const paymentData = {
         date: paymentDate || currentDate,
-        amount: parsedAmount,
+        amount: Number(baseAmount.toFixed(2)),
         gstvalue: withGst ? Number(taxValue.toFixed(2)) : 0,
         paymentType: "base",
         paymentStage: paymentOption,
         stageNumber: paymentOption === "mid" ? nextPaymentNum : (paymentOption === "advance" ? 1 : undefined),
         withGst: withGst,
+        gstin: withGst ? activeGstin : "",
         description: description.trim(),
         selectedOrderIds: [String(order._id)],
       };
@@ -227,6 +281,8 @@ const PaymentManagement = ({
   // Generate a dedicated separate invoice for an individual payment
   const handleGenerateSingleInvoice = (payment, idx) => {
     if (onGenerateInvoice) {
+      const activeGstVal = payment.withGst ?? withGst;
+      const activeGstin = payment.gstin || (withGst ? (isGstConfirmed ? gstin.trim() : gstinInput.trim()) : "");
       onGenerateInvoice({
         order,
         orderIdx,
@@ -243,6 +299,8 @@ const PaymentManagement = ({
         },
         isSeparateInvoice: true,
         isFullInvoice: false,
+        withGst: activeGstVal,
+        gstin: activeGstin,
       });
     }
   };
@@ -250,6 +308,7 @@ const PaymentManagement = ({
   // Generate complete full invoice for total order price without history breakdown
   const handleGenerateFullInvoice = () => {
     if (onGenerateInvoice) {
+      const activeGstin = withGst ? (isGstConfirmed ? gstin.trim() : gstinInput.trim()) : "";
       onGenerateInvoice({
         order,
         orderIdx,
@@ -262,6 +321,8 @@ const PaymentManagement = ({
         specificPayment: null,
         isSeparateInvoice: false,
         isFullInvoice: true,
+        withGst: withGst,
+        gstin: activeGstin,
       });
     }
   };
@@ -353,118 +414,215 @@ const PaymentManagement = ({
             </span>
           </div>
 
-          {/* Payment Form Fields */}
-          <div className="space-y-md">
-            {/* Payment Option & Amount Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                  PAYMENT OPTION
-                </label>
-                <select
-                  value={paymentOption}
-                  onChange={(e) => handleOptionChange(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
-                >
-                  {availableOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+          {/* When Fully Paid: Show a friendly settled message instead of payment inputs */}
+          {isFullyPaid ? (
+            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3 animate-in fade-in duration-200">
+              <span className="material-symbols-outlined text-emerald-600 text-[26px] shrink-0">
+                check_circle
+              </span>
+              <div>
+                <p className="text-xs font-black text-emerald-800">
+                  All payments have been settled for this order!
+                </p>
+                <p className="text-[11px] text-emerald-700 font-medium">
+                  Order price is fully paid. You can review payment stages or generate individual/complete invoices below.
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Payment Form Fields */
+            <div className="space-y-md">
+              {/* Payment Option & Amount Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
+                    PAYMENT OPTION
+                  </label>
+                  <select
+                    value={paymentOption}
+                    onChange={(e) => handleOptionChange(e.target.value)}
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
+                  >
+                    <option value="" disabled>-- Select Payment Option --</option>
+                    {availableOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
+                    AMOUNT (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount..."
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm"
+                  />
+                </div>
               </div>
 
+              {/* Date Picker */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                  AMOUNT (₹)
+                  DATE / MONTH / YEAR
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Enter amount..."
+                  type="date"
+                  value={paymentDate}
+                  onClick={(e) => {
+                    try {
+                      e.target.showPicker?.();
+                    } catch (_) {}
+                  }}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
+                />
+              </div>
+
+              {/* Description / Remarks */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
+                  DESCRIPTION / REMARKS
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter remarks..."
                   className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm"
                 />
               </div>
-            </div>
 
-            {/* Date Picker */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                DATE / MONTH / YEAR
-              </label>
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
-              />
-            </div>
-
-            {/* Description / Remarks */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                DESCRIPTION / REMARKS
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter remarks..."
-                className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm"
-              />
-            </div>
-
-            {/* GST Option Toggle */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                GST OPTION
-              </label>
-              <div className="grid grid-cols-2 gap-sm p-1 bg-surface-container-low border border-outline-variant rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setWithGst(false)}
-                  className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                    !withGst
-                      ? "bg-primary text-on-primary shadow-sm"
-                      : "text-on-surface hover:bg-surface-variant/50"
-                  }`}
-                >
-                  Without GST
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWithGst(true)}
-                  className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                    withGst
-                      ? "bg-primary text-on-primary shadow-sm"
-                      : "text-on-surface hover:bg-surface-variant/50"
-                  }`}
-                >
-                  With GST
-                </button>
+              {/* GST Option Toggle */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
+                  GST OPTION
+                </label>
+                <div className="grid grid-cols-2 gap-sm p-1 bg-surface-container-low border border-outline-variant rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWithGst(false);
+                      if (paymentOption === "full") {
+                        setAmount(totalOrderPrice > 0 ? String(totalOrderPrice) : "");
+                      } else if (paymentOption === "final") {
+                        setAmount(balanceDue > 0 ? String(balanceDue) : "");
+                      }
+                    }}
+                    className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      !withGst
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "text-on-surface hover:bg-surface-variant/50"
+                    }`}
+                  >
+                    Without GST
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWithGst(true);
+                      const withGstFull = totalOrderPrice + orderTaxValue;
+                      const withGstFinal = balanceDue + balanceTaxValue;
+                      if (paymentOption === "full") {
+                        setAmount(withGstFull > 0 ? String(Math.round(withGstFull)) : "");
+                      } else if (paymentOption === "final") {
+                        setAmount(withGstFinal > 0 ? String(Math.round(withGstFinal)) : "");
+                      }
+                    }}
+                    className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      withGst
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "text-on-surface hover:bg-surface-variant/50"
+                    }`}
+                  >
+                    With GST
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Amount Summary */}
-            <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/30 space-y-1.5">
-              <div className="flex justify-between items-center text-xs font-semibold text-on-surface-variant">
-                <span>Base Amount:</span>
-                <span className="font-bold text-on-surface">₹{parsedAmount.toFixed(2)}</span>
-              </div>
-              {withGst && (
-                <div className="flex justify-between items-center text-xs font-semibold text-on-surface-variant">
-                  <span>GST ({isInterState ? `IGST ${gstRates.igst || 18}%` : `CGST+SGST ${(Number(gstRates.cgst || 9) + Number(gstRates.sgst || 9))}%`}):</span>
-                  <span className="font-bold text-on-surface">₹{taxValue.toFixed(2)}</span>
+              {/* If With GST is selected and GST number is NOT confirmed/added -> show Input GST Number + Add button */}
+              {withGst && !isGstConfirmed && (
+                <div className="p-3 bg-surface-container-low rounded-xl border border-amber-500/40 space-y-2 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest block">
+                      INPUT GST NUMBER
+                    </label>
+                    <span className="text-[10px] text-amber-600 font-bold">GST Number Required</span>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={gstinInput}
+                      onChange={(e) => setGstinInput(e.target.value.toUpperCase())}
+                      placeholder="Enter customer GSTIN (e.g. 33AAAAA0000A1Z5)..."
+                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-2.5 font-bold font-mono text-on-surface focus:ring-2 focus:ring-primary outline-none text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddGstin();
+                        }
+                      }}
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleAddGstin}
+                        disabled={!gstinInput.trim()}
+                        className="px-4 py-1.5 bg-primary text-on-primary text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">add</span>
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
-              <div className="flex justify-between items-center text-sm font-black border-t border-outline-variant/30 pt-1.5">
-                <span className="text-primary">Total Amount:</span>
-                <span className="text-primary font-black">₹{totalWithGst.toFixed(2)}</span>
-              </div>
+
+              {/* Amount Summary:
+                  If without GST: show Base and Total.
+                  If with GST: only show this breakdown IF GST number is available and confirmed! */}
+              {(!withGst || isGstConfirmed) && (
+                <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/30 space-y-1.5 animate-in fade-in duration-150">
+                  {withGst && (
+                    <div className="flex justify-between items-center text-[11px] font-bold text-primary pb-1 border-b border-outline-variant/20">
+                      <span>GSTIN:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono">{gstin.trim()}</span>
+                        <button
+                          type="button"
+                          onClick={handleEditGstin}
+                          className="text-[10px] text-on-surface-variant hover:text-primary underline cursor-pointer"
+                          title="Change GSTIN"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-xs font-semibold text-on-surface-variant">
+                    <span>Base Amount:</span>
+                    <span className="font-bold text-on-surface">₹{baseAmount.toFixed(2)}</span>
+                  </div>
+                  {withGst && (
+                    <div className="flex justify-between items-center text-xs font-semibold text-on-surface-variant">
+                      <span>GST ({isInterState ? `IGST ${igstRateVal}%` : `CGST+SGST ${totalGstRate}%`}):</span>
+                      <span className="font-bold text-on-surface">₹{taxValue.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-sm font-black border-t border-outline-variant/30 pt-1.5">
+                    <span className="text-primary">Total Amount:</span>
+                    <span className="text-primary font-black">₹{parsedAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Recorded Payments List */}
           <div className="space-y-2 pt-1">
@@ -484,7 +642,7 @@ const PaymentManagement = ({
                 No payments recorded yet for this order.
               </div>
             ) : (
-              <div className="space-y-1.5 max-h-[170px] overflow-y-auto custom-scrollbar">
+              <div className={`space-y-1.5 overflow-y-auto custom-scrollbar ${isFullyPaid ? "max-h-[300px]" : "max-h-[170px]"}`}>
                 {orderPayments.map((p, idx) => {
                   const badgeInfo = getPaymentBadgeInfo(p, idx);
                   const isChecked = selectedPaymentIndex === idx;
@@ -562,7 +720,7 @@ const PaymentManagement = ({
                 className="px-md py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-primary/20 shadow-xs"
               >
                 <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                Generate Invoice: {selectedBadgeInfo?.label} (₹{(Number(selectedPayment.amount) || 0).toLocaleString()})
+                Generate Invoice: {selectedBadgeInfo?.label} (₹{((Number(selectedPayment.amount) || 0) + (selectedPayment.withGst ? (Number(selectedPayment.gstvalue) || 0) : 0)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })})
               </button>
             ) : (
               <button
@@ -572,7 +730,7 @@ const PaymentManagement = ({
                 title="Generate complete full invoice for total order amount without history breakdown"
               >
                 <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                Complete Invoice (₹{totalOrderPrice.toLocaleString()})
+                Complete Invoice (₹{displayOrderTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })})
               </button>
             )}
 
@@ -589,21 +747,23 @@ const PaymentManagement = ({
           </div>
 
           <div className="flex items-center gap-sm">
-            <button
-              type="button"
-              disabled={isSubmitting || parsedAmount <= 0}
-              onClick={handleSubmit}
-              className="px-lg py-2 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <span className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="material-symbols-outlined text-[16px]">
-                  {isPaidZero ? "payments" : "upgrade"}
-                </span>
-              )}
-              {actionButtonText}
-            </button>
+            {!isFullyPaid && (
+              <button
+                type="button"
+                disabled={isSubmitting || !paymentOption || parsedAmount <= 0}
+                onClick={handleSubmit}
+                className="px-lg py-2 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="material-symbols-outlined text-[16px]">
+                    {isPaidZero ? "payments" : "upgrade"}
+                  </span>
+                )}
+                {actionButtonText}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -619,3 +779,4 @@ const PaymentManagement = ({
 };
 
 export default PaymentManagement;
+

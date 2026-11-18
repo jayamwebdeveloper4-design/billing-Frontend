@@ -16,7 +16,8 @@ import { getTemplate } from "../api/templateApi";
 import { getProducts } from "../api/productApi";
 import { getGstSettings } from "../api/gstSettingsApi";
 import Addproject from "./AddProject/Addproject";
-import PaymentManagement from "./Costomers/paymentMenagement.jsx";
+import PaymentManagement from "./Costomers/PaymentMenagement.jsx";
+import PaymentHistoryModal from "./Costomers/PaymentHistory.jsx";
 
 const getCatalogPrices = (p) => {
   return {
@@ -155,10 +156,10 @@ const SearchableSelect = ({ name, value, options, onChange, placeholder, disable
                 <div
                   key={idx}
                   className={`px-md py-2 text-sm cursor-pointer transition-colors font-medium ${highlightedIndex === idx
-                      ? 'bg-primary/20 text-primary font-bold'
-                      : value === opt
-                        ? 'bg-primary/10 text-primary font-bold'
-                        : 'text-on-surface hover:bg-surface-container-low'
+                    ? 'bg-primary/20 text-primary font-bold'
+                    : value === opt
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'text-on-surface hover:bg-surface-container-low'
                     }`}
                   onClick={() => handleSelectOption(opt)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
@@ -977,54 +978,6 @@ const Customers = ({ isWebsiteOnly = false }) => {
   });
 
   const openHistoryPaymentModal = () => {
-    const orders = formData.orders || [];
-    const partiallyPaidIndices = orders
-      .map((o, i) => (o.paymentStatus === "Partially Paid" && o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-      .filter(i => i !== null);
-    const unpaidIndices = orders
-      .map((o, i) => (o.paymentStatus !== "Fully Paid" && o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-      .filter(i => i !== null);
-
-    const targetIndices = partiallyPaidIndices.length > 0 ? partiallyPaidIndices : unpaidIndices;
-    const allPaid = unpaidIndices.length === 0 && orders.length > 0;
-    const initialPaymentType = allPaid ? "updated" : "base";
-
-    const updatedIndices = orders
-      .map((o, i) => (o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-      .filter(i => i !== null);
-
-    const initialSelIndices = allPaid
-      ? (updatedIndices.length > 0 ? [updatedIndices[0]] : (orders.length > 0 ? [0] : []))
-      : (targetIndices.length > 0 ? targetIndices : (orders.length > 0 ? [0] : []));
-
-    let initialAmount = 0;
-    if (!allPaid) {
-      initialSelIndices.forEach(idx => {
-        const ord = orders[idx];
-        if (ord) {
-          const totalPaid = (ord.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-          const bal = Math.max(0, (ord.totalPrice || 0) - totalPaid);
-          initialAmount += bal > 0 ? bal : (ord.totalPrice || 0);
-        }
-      });
-    }
-
-    setHistoryPaymentEdit({
-      selectedOrderIndices: initialSelIndices,
-      orderIdx: initialSelIndices.length > 0 ? initialSelIndices[0].toString() : "",
-      paymentType: initialPaymentType,
-      paymentStage: "full",
-      amount: initialAmount > 0 ? Number(initialAmount.toFixed(2)).toString() : "",
-      renewalCostPrice: "",
-      status: "Fully Paid",
-      withGst: false,
-      state: "",
-      gstin: formData.gstin || "",
-      paymentDate: currentDate,
-      newStartDate: currentDate,
-      newEndDate: getOneYearLater(currentDate),
-      description: "",
-    });
     setIsHistoryPaymentModalOpen(true);
   };
 
@@ -1139,8 +1092,8 @@ const Customers = ({ isWebsiteOnly = false }) => {
       orders[ordIdx] = orderToUpdate;
 
       const targetCustomerId = editingId || formData._id || selectedCustomer?._id;
-      const gstUpdate = paymentData.withGst
-        ? { gstin: formData.gstin }
+      const gstUpdate = paymentData.withGst && paymentData.gstin
+        ? { gstin: paymentData.gstin }
         : {};
 
       const updatedCust = await updateCustomer(targetCustomerId, { ...formData, ...gstUpdate, orders });
@@ -2341,6 +2294,41 @@ const Customers = ({ isWebsiteOnly = false }) => {
     }
   };
 
+  const handleSaveOldPayments = async ({ updatedOrders, gstin }) => {
+    try {
+      const targetCustomerId = editingId || formData._id || selectedCustomer?._id;
+      const gstUpdate = gstin ? { gstin } : {};
+      const updatedCust = await updateCustomer(targetCustomerId, {
+        ...formData,
+        ...gstUpdate,
+        orders: updatedOrders,
+      });
+
+      setFormData({
+        ...updatedCust,
+        email: Array.isArray(updatedCust.email) ? updatedCust.email.join(', ') : (updatedCust.email || ""),
+        phone: Array.isArray(updatedCust.phone) ? updatedCust.phone.join(', ') : (updatedCust.phone || ""),
+        contactPerson: updatedCust.contactPerson || "",
+        country: updatedCust.country || "",
+        state: updatedCust.state || "Tamil Nadu",
+        gstin: updatedCust.gstin || "",
+        address: updatedCust.address || "",
+        notes: updatedCust.notes || "",
+        orders: updatedCust.orders || [],
+      });
+      setCustomers(prev => prev.map(c => (c._id === targetCustomerId ? updatedCust : c)));
+      if (selectedCustomer && selectedCustomer._id === targetCustomerId) {
+        setSelectedCustomer(updatedCust);
+      }
+      fetchData();
+      toast.success("Old payment records saved successfully");
+      setIsHistoryPaymentModalOpen(false);
+    } catch (err) {
+      console.error("Save error:", err);
+      toast.error("Failed to save payments");
+    }
+  };
+
   const handleHistoryPaymentUpdate = async () => {
     const selectedIndices = (historyPaymentEdit.selectedOrderIndices && historyPaymentEdit.selectedOrderIndices.length > 0)
       ? historyPaymentEdit.selectedOrderIndices
@@ -2997,8 +2985,8 @@ const Customers = ({ isWebsiteOnly = false }) => {
                                 <div
                                   key={idx}
                                   className={`px-md py-3 cursor-pointer transition-colors text-on-surface border-b border-outline-variant/20 last:border-0 ${emailHighlightedIndex === idx
-                                      ? "bg-primary/20"
-                                      : "hover:bg-surface-container-low"
+                                    ? "bg-primary/20"
+                                    : "hover:bg-surface-container-low"
                                     }`}
                                   onClick={() => {
                                     openEditForm(c);
@@ -3016,8 +3004,8 @@ const Customers = ({ isWebsiteOnly = false }) => {
                           ) : (
                             <div
                               className={`px-md py-4 text-sm text-center text-primary font-bold cursor-pointer transition-colors flex items-center justify-center gap-2 ${emailHighlightedIndex === 0
-                                  ? "bg-primary/10"
-                                  : "hover:bg-primary/5"
+                                ? "bg-primary/10"
+                                : "hover:bg-primary/5"
                                 }`}
                               onClick={() => {
                                 setIsNewCustomerConfirmed(true);
@@ -3312,7 +3300,7 @@ const Customers = ({ isWebsiteOnly = false }) => {
                 </div>
               </div>
             )}
-{/* sERVICE PRODUCTS */}
+            {/* sERVICE PRODUCTS */}
             {activeTab === "service" && (
               <div className="space-y-md md:space-y-lg animate-in fade-in duration-200">
                 <div className="flex justify-between items-center border-b border-outline-variant pb-md">
@@ -3405,14 +3393,31 @@ const Customers = ({ isWebsiteOnly = false }) => {
                                   )}
                                 </td>
                                 <td className="px-md py-4 text-base font-black text-on-surface align-top">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span>₹{order.totalPrice.toLocaleString()}</span>
-                                    {order.payments?.some(p => p.withGst) && (
-                                      <span className="text-[10px] text-primary font-bold bg-primary/10 px-2 py-0.5 rounded inline-block">
-                                        + GST
-                                      </span>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const hasGst = order.payments?.some(p => p.withGst);
+                                    const gstTotal = (order.payments || [])
+                                      .filter(p => p.withGst)
+                                      .reduce((sum, p) => sum + (Number(p.gstvalue) || 0), 0);
+                                    const grandTotal = (Number(order.totalPrice) || 0) + gstTotal;
+
+                                    return (
+                                      <div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span>₹{(Number(order.totalPrice) || 0).toLocaleString()}</span>
+                                          {hasGst && (
+                                            <span className="text-[10px] text-primary font-bold bg-primary/10 px-2 py-0.5 rounded inline-block">
+                                              + GST {gstTotal > 0 ? `(₹${gstTotal.toLocaleString()})` : ""}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {hasGst && gstTotal > 0 && (
+                                          <div className="text-[11px] font-bold text-on-surface-variant mt-0.5">
+                                            Total: <span className="text-primary font-black">₹{grandTotal.toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-md py-4 align-top">
                                   <span
@@ -3591,20 +3596,19 @@ const Customers = ({ isWebsiteOnly = false }) => {
                                       {payment.paymentType === "renewal" ? "Renewal" : payment.paymentType === "updated" ? "Updated" : "Base"}
                                     </span>
                                     {payment.paymentStage && payment.paymentStage !== 'full' && (
-                                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${
-                                        payment.paymentStage === 'advance'
-                                          ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
-                                          : payment.paymentStage === 'mid'
-                                            ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
-                                            : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-                                      }`}>
+                                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${payment.paymentStage === 'advance'
+                                        ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                        : payment.paymentStage === 'mid'
+                                          ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                          : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                                        }`}>
                                         {payment.paymentStage === 'advance'
                                           ? 'Advance'
                                           : payment.paymentStage === 'final'
-                                          ? 'Final Amount'
-                                          : payment.paymentStage === 'mid'
-                                          ? (payment.stageNumber === 2 ? 'Second Payment' : payment.stageNumber === 3 ? 'Third Payment' : payment.stageNumber === 4 ? 'Fourth Payment' : `Payment #${payment.stageNumber || 2}`)
-                                          : 'Payment'}
+                                            ? 'Final Amount'
+                                            : payment.paymentStage === 'mid'
+                                              ? (payment.stageNumber === 2 ? 'Second Payment' : payment.stageNumber === 3 ? 'Third Payment' : payment.stageNumber === 4 ? 'Fourth Payment' : `Payment #${payment.stageNumber || 2}`)
+                                              : 'Payment'}
                                       </span>
                                     )}
                                   </div>
@@ -4425,689 +4429,14 @@ const Customers = ({ isWebsiteOnly = false }) => {
         </div>
       )}
 
-      {isHistoryPaymentModalOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-md bg-on-background/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-[600px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-md md:p-lg border-b border-outline-variant/30 bg-surface-container-low flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-sm text-primary">
-                <span className="material-symbols-outlined text-[24px]">payments</span>
-                <div>
-                  <h3 className="text-lg font-black text-on-surface">Add Payment</h3>
-                  <p className="text-xs text-primary font-bold">
-                    {formData.name || selectedCustomer?.name}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsHistoryPaymentModalOpen(false)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-surface-variant rounded-full transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            {(() => {
-              const hasPartiallyPaid = (formData.orders || []).some(o => o.paymentStatus === "Partially Paid");
-              const displayOrdersWithIndices = (formData.orders || [])
-                .map((order, originalIndex) => ({ order, originalIndex }))
-                .filter(({ order }) => {
-                  const hasNonVal = order.products?.some(p => p.validationEnabled === false || !p.validationEnabled);
-                  if (historyPaymentEdit.paymentType === "base") {
-                    if (hasPartiallyPaid) {
-                      return order.paymentStatus === "Partially Paid" && hasNonVal;
-                    }
-                    return order.paymentStatus !== "Fully Paid" && hasNonVal;
-                  }
-                  if (historyPaymentEdit.paymentType === "updated") {
-                    return hasNonVal;
-                  }
-                  return true;
-                });
-              const isAllOrdersPaid = (formData.orders || []).length > 0 && (formData.orders || []).every(o => o.paymentStatus === "Fully Paid");
-
-              const currentSel = historyPaymentEdit.selectedOrderIndices || [];
-              const visibleIndices = displayOrdersWithIndices.map(d => d.originalIndex);
-              const selectedVisibleCount = visibleIndices.filter(i => currentSel.includes(i)).length;
-              const isAllSelected = visibleIndices.length > 0 && selectedVisibleCount === visibleIndices.length;
-
-              // ✅ Empty state — no orders found matching criteria
-              if (displayOrdersWithIndices.length === 0) {
-                return (
-                  <div className="p-md md:p-lg space-y-lg overflow-y-auto custom-scrollbar flex-1">
-                    <div className="p-md bg-surface-container-low rounded-xl border border-outline-variant/30 text-center">
-                      <div className="flex flex-col items-center gap-2 py-4">
-                        <span className="material-symbols-outlined text-on-surface-variant text-[28px]">info</span>
-                        <p className="text-xs font-bold text-on-surface">No Orders Found</p>
-                        <p className="text-[11px] text-on-surface-variant">
-                          No services with date validation disabled found.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="p-md md:p-lg space-y-lg overflow-y-auto custom-scrollbar flex-1">
-                  <div className="space-y-2 p-md bg-surface-container-low rounded-xl border border-outline-variant/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                        Select Services / Orders ({selectedVisibleCount}/{displayOrdersWithIndices.length})
-                      </span>
-                      {displayOrdersWithIndices.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newIndices = isAllSelected
-                              ? currentSel.filter(i => !visibleIndices.includes(i))
-                              : Array.from(new Set([...currentSel, ...visibleIndices]));
-
-                            let totalBase = 0;
-                            let totalRenewalSelling = 0;
-                            let totalRenewalCost = 0;
-                            newIndices.forEach(idx => {
-                              const ord = formData.orders[idx];
-                              if (!ord) return;
-                              if (historyPaymentEdit.paymentType === "base") {
-                                const totalPaid = (ord.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-                                const bal = Math.max(0, (ord.totalPrice || 0) - totalPaid);
-                                totalBase += bal > 0 ? bal : (ord.totalPrice || 0);
-                              } else {
-                                ord.products?.forEach(p => {
-                                  if (p.deactive) return;
-                                  const qty = p.quantity || 1;
-                                  const catalogProd = allProducts.find(cp => cp.name?.toLowerCase().trim() === p.product?.toLowerCase().trim());
-                                  const resolvedPrices = getCatalogPrices(p, catalogProd);
-                                  if (p.validationEnabled) {
-                                    totalRenewalSelling += resolvedPrices.selling;
-                                    totalRenewalCost += resolvedPrices.cost;
-                                  }
-                                  totalBase += (p.price );
-                                });
-                              }
-                            });
-
-                            setHistoryPaymentEdit(prev => ({
-                              ...prev,
-                              selectedOrderIndices: newIndices,
-                              orderIdx: newIndices.length > 0 ? newIndices[0].toString() : "",
-                              amount: prev.paymentType === "renewal" ? Number(totalRenewalSelling.toFixed(2)).toString() : (prev.paymentType === "updated" ? "" : Number(totalBase.toFixed(2)).toString()),
-                              renewalCostPrice: Number(totalRenewalCost.toFixed(2)).toString()
-                            }));
-                          }}
-                          className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
-                        >
-                          {isAllSelected ? "Deselect All" : "Select All"}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                      {displayOrdersWithIndices.map(({ order, originalIndex: idx }) => {
-                        const selectedIndices = historyPaymentEdit.selectedOrderIndices || [];
-                        const isSelected = selectedIndices.includes(idx);
-                        const targetProducts = order.products?.filter(p => p.validationEnabled === false || !p.validationEnabled);
-                        const productsStr = targetProducts?.map(p => p.product).join(', ') || "Service";
-                        const isDeactiveDisabled = order.products?.length === 1 && order.products[0].deactive;
-                        const hasValidation = order.products?.some(p => p.validationEnabled !== false && p.validationEnabled === true);
-                        const isValidationDisabled = historyPaymentEdit.paymentType === "renewal" && !hasValidation;
-                        const isOptionDisabled = isDeactiveDisabled || isValidationDisabled;
-
-                        let renewalTotal = 0;
-                        if (historyPaymentEdit.paymentType === "renewal") {
-                          order.products?.forEach(p => {
-                            if (p.deactive || !p.validationEnabled) return;
-                            const qty = p.quantity || 1;
-                            const catalogProd = allProducts.find(cp => cp.name?.toLowerCase().trim() === p.product?.toLowerCase().trim());
-                            const resolvedPrices = getCatalogPrices(p, catalogProd);
-                            renewalTotal += resolvedPrices.selling * qty;
-                          });
-                        }
-                        const displayPrice = historyPaymentEdit.paymentType === "renewal" ? renewalTotal : order.totalPrice;
-
-                        const toggleOrder = () => {
-                          if (isOptionDisabled) return;
-                          const currentSel = historyPaymentEdit.selectedOrderIndices || [];
-                          const newIndices = currentSel.includes(idx)
-                            ? currentSel.filter(i => i !== idx)
-                            : [...currentSel, idx];
-
-                          let totalBase = 0;
-                          let totalRenewalSelling = 0;
-                          let totalRenewalCost = 0;
-                          newIndices.forEach(i => {
-                            const ord = formData.orders[i];
-                            if (!ord) return;
-                            if (historyPaymentEdit.paymentType === "base") {
-                              const totalPaid = (ord.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-                              const bal = Math.max(0, (ord.totalPrice || 0) - totalPaid);
-                              totalBase += bal > 0 ? bal : (ord.totalPrice || 0);
-                            } else {
-                              ord.products?.forEach(p => {
-                                if (p.deactive) return;
-                                const qty = p.quantity || 1;
-                                const catalogProd = allProducts.find(cp => cp.name?.toLowerCase().trim() === p.product?.toLowerCase().trim());
-                                const resolvedPrices = getCatalogPrices(p, catalogProd);
-                                if (p.validationEnabled) {
-                                  totalRenewalSelling += resolvedPrices.selling * qty;
-                                  totalRenewalCost += resolvedPrices.cost * qty;
-                                }
-                                totalBase += (p.price || 0) * qty;
-                              });
-                            }
-                          });
-
-                          setHistoryPaymentEdit(prev => ({
-                            ...prev,
-                            selectedOrderIndices: newIndices,
-                            orderIdx: newIndices.length > 0 ? newIndices[0].toString() : "",
-                            amount: prev.paymentType === "renewal" ? Number(totalRenewalSelling.toFixed(2)).toString() : (prev.paymentType === "updated" ? "" : Number(totalBase.toFixed(2)).toString()),
-                            renewalCostPrice: Number(totalRenewalCost.toFixed(2)).toString()
-                          }));
-                        };
-
-                        return (
-                          <div
-                            key={order._id || idx}
-                            onClick={toggleOrder}
-                            className={`flex items-center justify-between p-md rounded-xl border transition-all cursor-pointer ${isOptionDisabled ? "opacity-40 cursor-not-allowed bg-surface-container-low border-outline-variant/20" :
-                              isSelected
-                                ? "bg-primary/5 border-primary/40 text-on-surface shadow-xs"
-                                : "bg-surface-container-lowest border-outline-variant/30 text-on-surface-variant/70 opacity-70 hover:opacity-100"
-                              }`}
-                          >
-                            <div className="flex items-start gap-md min-w-0">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                disabled={isOptionDisabled}
-                                onChange={() => { }}
-                                className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary mt-0.5 cursor-pointer"
-                              />
-                              <div className="min-w-0 text-left">
-                                <div className="font-bold text-xs text-on-surface truncate">
-                                  {productsStr} {order.domainUrl ? `(${order.domainUrl})` : ""}
-                                </div>
-                                <div className="text-[11px] text-on-surface-variant font-medium truncate">
-                                  {formatDate(order.orderDate)} {isDeactiveDisabled ? "• (Deactivated)" : (isValidationDisabled ? "• (No Date Validation)" : "")} {order.paymentStatus ? `• (${order.paymentStatus})` : ""}
-                                </div>
-                              </div>
-                            </div>
-                            {/* <span className="font-black text-xs text-primary font-tabular-nums shrink-0 ml-2">
-                              ₹{displayPrice.toLocaleString()}
-                            </span> */}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Payment Type Selection & Payment Date */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md animate-in fade-in duration-200">
-                    <div className="space-y-sm">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">
-                        Payment Type
-                      </label>
-                      <div className={`grid ${isAllOrdersPaid ? 'grid-cols-1' : 'grid-cols-2'} gap-1 p-1 bg-surface-container-low border border-outline-variant rounded-xl`}>
-                        {!isAllOrdersPaid && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const partiallyPaidIndices = (formData.orders || [])
-                                .map((o, i) => (o.paymentStatus === "Partially Paid" && o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-                                .filter(i => i !== null);
-                              const unpaidIndices = (formData.orders || [])
-                                .map((o, i) => (o.paymentStatus !== "Fully Paid" && o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-                                .filter(i => i !== null);
-                              const indicesToUse = partiallyPaidIndices.length > 0 ? partiallyPaidIndices : unpaidIndices;
-
-                              let defBaseSelling = 0;
-                              indicesToUse.forEach(i => {
-                                const order = formData.orders[i];
-                                if (order) {
-                                  const totalPaid = (order.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-                                  const bal = Math.max(0, (order.totalPrice || 0) - totalPaid);
-                                  defBaseSelling += bal > 0 ? bal : (order.totalPrice || 0);
-                                }
-                              });
-                              setHistoryPaymentEdit((prev) => ({
-                                ...prev,
-                                selectedOrderIndices: indicesToUse,
-                                orderIdx: indicesToUse.length > 0 ? indicesToUse[0].toString() : "",
-                                paymentType: "base",
-                                amount: Number(defBaseSelling.toFixed(2)).toString()
-                              }));
-                            }}
-                            className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${historyPaymentEdit.paymentType === "base"
-                              ? "bg-primary text-on-primary shadow-sm"
-                              : "text-on-surface hover:bg-surface-variant/50"
-                              }`}
-                          >
-                            Partially Paid
-                          </button>
-                        )}
-                        {/* {!isAllOrdersPaid && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const indices = historyPaymentEdit.selectedOrderIndices || [];
-                              let defRenewalSelling = 0;
-                              let defRenewalCost = 0;
-                              indices.forEach(i => {
-                                const order = formData.orders[i];
-                                if (order) {
-                                  order.products?.forEach(p => {
-                                    if (p.deactive || !p.validationEnabled) return;
-                                    const qty = p.quantity || 1;
-                                    const catalogProd = allProducts.find(cp => cp.name?.toLowerCase().trim() === p.product?.toLowerCase().trim());
-                                    const resolvedPrices = getCatalogPrices(p, catalogProd);
-                                    defRenewalSelling += resolvedPrices.selling * qty;
-                                    defRenewalCost += resolvedPrices.cost * qty;
-                                  });
-                                }
-                              });
-                              const selOrders = selectedOrderIndices.map(idx => formData.orders?.[idx]).filter(Boolean);
-                              const targetOrd = selOrders[0];
-                              const baseDate = targetOrd?.endDate || targetOrd?.startDate || currentDate;
-                              let startVal = baseDate;
-                              if (baseDate && baseDate.includes('-') && baseDate.split('-')[0].length === 4) {
-                                startVal = baseDate.split('T')[0];
-                              }
-                              const endVal = getOneYearLater(startVal);
-                              setHistoryPaymentEdit((prev) => ({
-                                ...prev,
-                                paymentType: "renewal",
-                                amount: defRenewalSelling.toString(),
-                                renewalCostPrice: defRenewalCost.toString(),
-                                newStartDate: startVal,
-                                newEndDate: endVal
-                              }));
-                            }}
-                            className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${historyPaymentEdit.paymentType === "renewal"
-                              ? "bg-primary text-on-primary shadow-sm"
-                              : "text-on-surface hover:bg-surface-variant/50"
-                              }`}
-                          >
-                            Renewal
-                          </button>
-                        )} */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updatedIndices = (formData.orders || [])
-                              .map((o, i) => (o.products?.some(p => p.validationEnabled === false || !p.validationEnabled) ? i : null))
-                              .filter(i => i !== null);
-                            setHistoryPaymentEdit((prev) => ({
-                              ...prev,
-                              paymentType: "updated",
-                              selectedOrderIndices: updatedIndices.length > 0 ? [updatedIndices[0]] : [],
-                              orderIdx: updatedIndices.length > 0 ? updatedIndices[0].toString() : "",
-                              amount: ""
-                            }));
-                          }}
-                          className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${historyPaymentEdit.paymentType === "updated"
-                            ? "bg-primary text-on-primary shadow-sm"
-                            : "text-on-surface hover:bg-surface-variant/50"
-                            }`}
-                        >
-                          Updates
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-sm">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">
-                        Payment Date
-                      </label>
-                      <input
-                        type="date"
-                        value={historyPaymentEdit.paymentDate}
-                        onChange={(e) => {
-                          const pDate = e.target.value;
-                          setHistoryPaymentEdit(prev => ({
-                            ...prev,
-                            paymentDate: pDate
-                          }));
-                        }}
-                        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2 md:py-sm font-black text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Renewal Dates Grid */}
-                  {
-                    historyPaymentEdit.paymentType === "renewal" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-md animate-in fade-in duration-200">
-                        <div className="space-y-sm">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">
-                            New Start Date
-                          </label>
-                          <input
-                            type="date"
-                            value={historyPaymentEdit.newStartDate}
-                            onChange={(e) => {
-                              const start = e.target.value;
-                              const end = getOneYearLater(start);
-                              setHistoryPaymentEdit({
-                                ...historyPaymentEdit,
-                                newStartDate: start,
-                                newEndDate: end
-                              });
-                            }}
-                            className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2 md:py-sm font-black text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
-                          />
-                        </div>
-                        <div className="space-y-sm">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">
-                            New End Date
-                          </label>
-                          <input
-                            type="date"
-                            value={historyPaymentEdit.newEndDate}
-                            onChange={(e) => setHistoryPaymentEdit({ ...historyPaymentEdit, newEndDate: e.target.value })}
-                            className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2 md:py-sm font-black text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  {/* Payment Stage Selector with Smart Advance Locking */}
-                  {(() => {
-                    const selectedOrdersList = (formData.orders || []).filter((_, idx) => (historyPaymentEdit.selectedOrderIndices || []).includes(idx));
-                    const alreadyHasAdvance = selectedOrdersList.some(o => (o.payments || []).some(p => p.paymentStage === 'advance'));
-
-                    return (
-                      <div className="space-y-sm animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                            Payment Stage
-                          </label>
-                          {alreadyHasAdvance && (
-                            <span className="text-[10px] text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                              Advance Already Recorded
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                          {[
-                            { id: "full", label: "Full / Normal", icon: "check_circle" },
-                            { id: "advance", label: "Advance", icon: "arrow_circle_right", disabled: alreadyHasAdvance },
-                            { id: "mid", label: "Next Payment", icon: "timelapse" },
-                            { id: "final", label: "Final Amount", icon: "task_alt" }
-                          ].map((stage) => (
-                            <button
-                              key={stage.id}
-                              type="button"
-                              disabled={stage.disabled}
-                              onClick={() => setHistoryPaymentEdit(prev => ({ ...prev, paymentStage: stage.id }))}
-                              className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition-all ${
-                                stage.disabled
-                                  ? "opacity-35 cursor-not-allowed bg-surface-container-low border-outline-variant/30 text-on-surface-variant line-through"
-                                  : (historyPaymentEdit.paymentStage || "full") === stage.id
-                                    ? "bg-primary text-on-primary border-primary shadow-sm cursor-pointer"
-                                    : "bg-surface-container-low text-on-surface border-outline-variant/60 hover:bg-surface-variant cursor-pointer"
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[18px] mb-0.5">{stage.icon}</span>
-                              <span className="text-[11px] font-semibold">{stage.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                        {alreadyHasAdvance && historyPaymentEdit.paymentStage === 'advance' && (
-                          <p className="text-[11px] text-amber-600 font-bold">
-                            ⚠️ Advance is already recorded for this order. Please select Next Payment or Final Amount.
-                          </p>
-                        )}
-                        {historyPaymentEdit.paymentStage === 'advance' && !alreadyHasAdvance && (
-                          <p className="text-[11px] text-amber-600 font-medium">
-                            Advance 1st Payment. You can generate an advance stage invoice.
-                          </p>
-                        )}
-                        {historyPaymentEdit.paymentStage === 'mid' && (
-                          <p className="text-[11px] text-blue-600 font-medium">
-                            Sequential Part Payment (Second / Third Payment). You can generate an installment invoice.
-                          </p>
-                        )}
-                        {historyPaymentEdit.paymentStage === 'final' && (
-                          <p className="text-[11px] text-emerald-600 font-medium">
-                            Final Amount Settlement.
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Amount Inputs depending on Payment Type */}
-                  {
-                    historyPaymentEdit.paymentType !== "renewal" ? (
-                      <div className="space-y-sm animate-in fade-in duration-200">
-                        <label className="text-[10px] font-black text-on-surface-variant uppercase">
-                          {historyPaymentEdit.withGst ? "Base Amount (₹)" : "Payment Amount (₹)"}
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={historyPaymentEdit.amount}
-                          onChange={(e) => {
-                            let val = e.target.value;
-                            if (val && val.includes('.')) {
-                              const parts = val.split('.');
-                              if (parts[1] && parts[1].length > 2) {
-                                val = `${parts[0]}.${parts[1].slice(0, 2)}`;
-                              }
-                            }
-                            setHistoryPaymentEdit({ ...historyPaymentEdit, amount: val });
-                          }}
-                          placeholder="Enter payment amount..."
-                          className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 font-black text-on-surface focus:ring-2 focus:ring-primary outline-none"
-                        />
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-md animate-in fade-in duration-200">
-                        <div className="space-y-sm">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase">
-                            {historyPaymentEdit.withGst ? "Renewal Base Amount (₹)" : "Renewal Amount (₹)"}
-                          </label>
-                          <input
-                            type="number"
-                            value={historyPaymentEdit.amount}
-                            onChange={(e) => setHistoryPaymentEdit({ ...historyPaymentEdit, amount: e.target.value })}
-                            placeholder="Enter renewal amount..."
-                            className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 font-black text-on-surface focus:ring-2 focus:ring-primary outline-none"
-                          />
-                        </div>
-                        <div className="space-y-sm">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase">
-                            Cost Amount (₹)
-                          </label>
-                          <input
-                            type="number"
-                            value={historyPaymentEdit.renewalCostPrice}
-                            onChange={(e) => setHistoryPaymentEdit({ ...historyPaymentEdit, renewalCostPrice: e.target.value })}
-                            placeholder="Enter renewal cost amount..."
-                            className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 font-black text-on-surface focus:ring-2 focus:ring-primary outline-none"
-                          />
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  {/* Description Input - Showing only when Payment Type is 'updated' */}
-                  <div className="space-y-sm animate-in fade-in duration-200">
-                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                      Description / Remarks
-                    </label>
-                    <input
-                      type="text"
-                      value={historyPaymentEdit.description || ""}
-                      onChange={(e) => setHistoryPaymentEdit({ ...historyPaymentEdit, description: e.target.value })}
-                      placeholder="Enter payment description / reference notes..."
-                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-2.5 font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none text-sm"
-                    />
-                  </div>
-
-                  {/* GST Option */}
-                  <div className="space-y-sm animate-in fade-in duration-200">
-                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">
-                      GST Option
-                    </label>
-                    <div className="grid grid-cols-2 gap-sm p-1 bg-surface-container-low border border-outline-variant rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHistoryPaymentEdit((prev) => ({ ...prev, withGst: false }))
-                        }
-                        className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${!historyPaymentEdit.withGst
-                          ? "bg-primary text-on-primary shadow-sm"
-                          : "text-on-surface hover:bg-surface-variant/50"
-                          }`}
-                      >
-                        Without GST
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHistoryPaymentEdit((prev) => ({ ...prev, withGst: true }))
-                        }
-                        className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${historyPaymentEdit.withGst
-                          ? "bg-primary text-on-primary shadow-sm"
-                          : "text-on-surface hover:bg-surface-variant/50"
-                          }`}
-                      >
-                        With GST
-                      </button>
-                    </div>
-                  </div>
-
-                  {
-                    historyPaymentEdit.withGst && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-md animate-in fade-in slide-in-from-top-2 duration-200">
-                        <div>
-                          <label className="block text-xs font-semibold text-on-surface mb-2">
-                            STATE
-                          </label>
-
-                          <div
-                            className="w-full px-4 py-3 rounded-xl border border-outline
-                 bg-surface-variant text-on-surface
-                 font-medium text-sm"
-                          >
-                            {formData.state || "State not available"}
-                          </div>
-                        </div>
-                        <div className="space-y-sm">
-                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-                            GSTIN <span className="text-error">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={historyPaymentEdit.gstin || ""}
-                            onChange={(e) =>
-                              setHistoryPaymentEdit((prev) => ({ ...prev, gstin: e.target.value }))
-                            }
-                            placeholder="Enter GSTIN..."
-                            className={`w-full bg-surface-container-low border rounded-xl px-md py-2 md:py-sm font-black focus:ring-2 focus:ring-primary outline-none text-sm font-mono ${(historyPaymentEdit.gstin || "").trim() ? 'border-outline-variant text-on-surface' : 'border-error/50 text-on-surface-variant'}`}
-                          />
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  {/* Total Amount Details */}
-                  {
-                    historyPaymentEdit.amount &&
-                    (() => {
-                      const amt = Number(historyPaymentEdit.amount) || 0;
-
-                      const cgst =
-                        amt * (Number(gstRates.cgst) / 100);
-
-                      const sgst =
-                        amt * (Number(gstRates.sgst) / 100);
-
-                      const igst =
-                        amt * (Number(gstRates.igst) / 100);
-
-                      const customerState = (formData.state || "").trim();
-
-                      const total = historyPaymentEdit.withGst
-                        ? customerState === "Tamil Nadu"
-                          ? amt + cgst + sgst
-                          : customerState
-                            ? amt + igst
-                            : amt
-                        : amt;
-
-                      return (
-                        <div className="bg-primary/5 p-md rounded-xl border border-primary/10 space-y-1 text-xs animate-in fade-in duration-200">
-
-                          <div className="flex justify-between font-bold text-on-surface-variant">
-                            <span>Base Amount:</span>
-                            <span>
-                              ₹{formatAmount(amt)}
-                            </span>
-                          </div>
-
-                          {historyPaymentEdit.withGst && (
-                            <>
-                              {(formData.state || "").trim() === "Tamil Nadu" ? (
-                                <>
-                                  <div className="flex justify-between text-on-surface-variant">
-                                    <span>
-                                      CGST ({gstRates.cgst}%):
-                                    </span>
-                                    <span>
-                                      ₹{formatAmount(cgst)}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex justify-between text-on-surface-variant">
-                                    <span>
-                                      SGST ({gstRates.sgst}%):
-                                    </span>
-                                    <span>
-                                      ₹{formatAmount(sgst)}
-                                    </span>
-                                  </div>
-                                </>
-                              ) : (formData.state || "").trim() ? (
-                                <div className="flex justify-between text-on-surface-variant">
-                                  <span>
-                                    IGST ({gstRates.igst}%):
-                                  </span>
-                                  <span>
-                                    ₹{formatAmount(igst)}
-                                  </span>
-                                </div>
-                              ) : null}
-                            </>
-                          )}
-
-                          <div className="flex justify-between font-black text-primary pt-2 border-t border-primary/20 text-sm">
-                            <span>Total Amount:</span>
-                            <span>
-                              ₹{formatAmount(total)}
-                            </span>
-                          </div>
-
-                        </div>
-                      );
-                    })()
-                  }
-
-                  <button
-                    onClick={handleHistoryPaymentUpdate}
-                    className="w-full bg-primary text-on-primary py-3 rounded-xl font-bold hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    Submit
-                  </button>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )
-      }
+      {/* Old Payments Table Input & Excel Import Modal */}
+      <PaymentHistoryModal
+        isOpen={isHistoryPaymentModalOpen}
+        onClose={() => setIsHistoryPaymentModalOpen(false)}
+        customer={formData}
+        gstRates={gstRates}
+        onSavePayments={handleSaveOldPayments}
+      />
 
       {/* Generate Invoice Wizard Modal */}
       {

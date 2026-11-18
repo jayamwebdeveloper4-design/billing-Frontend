@@ -8,6 +8,7 @@ import { getProducts } from "../api/productApi";
 import { getNextInvoiceNumber, generateInvoicePdf, verifyInvoiceNumber } from "../api/invoiceApi";
 import { getGstSettings } from "../api/gstSettingsApi";
 import { emailInvoice } from "../api/customerApi";
+import PaymentManagement from "./Costomers/PaymentMenagement.jsx";
 
 
 const SearchableSelect = ({ name, value, options, onChange, placeholder, disabled }) => {
@@ -498,7 +499,7 @@ const NewOrder = () => {
 
 
 
-  
+
   const validateAndFixYears = (yearsValue) => {
     let years = parseFloat(yearsValue) || 1;
     let adjusted = false;
@@ -566,16 +567,16 @@ const NewOrder = () => {
 
   // Add a helper function to calculate endDate:
 
-const calculateEndDate = (startDateStr, cycle) => {
-  const d = new Date(startDateStr || new Date());
-  if (isNaN(d.getTime())) return startDateStr;
-  if (cycle === 'monthly') {
-    d.setMonth(d.getMonth() + 1);
-  } else {
-    d.setFullYear(d.getFullYear() + 1);
-  }
-  return d.toISOString().split("T")[0];
-};
+  const calculateEndDate = (startDateStr, cycle) => {
+    const d = new Date(startDateStr || new Date());
+    if (isNaN(d.getTime())) return startDateStr;
+    if (cycle === 'monthly') {
+      d.setMonth(d.getMonth() + 1);
+    } else {
+      d.setFullYear(d.getFullYear() + 1);
+    }
+    return d.toISOString().split("T")[0];
+  };
 
 
   // Additional option state
@@ -663,16 +664,16 @@ const calculateEndDate = (startDateStr, cycle) => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [savedOrderContext, setSavedOrderContext] = useState({ customer: null, order: null });
   const [paymentForm, setPaymentForm] = useState({
-  amount: "",
-  withGst: false,
-  state: "",
-  gstin: "",
-  paymentDate: currentDate,
-  description: "",
-  applyTds: false,
-  tdsAmount: "",
-  paymentStage: "full",
-});
+    amount: "",
+    withGst: false,
+    state: "",
+    gstin: "",
+    paymentDate: currentDate,
+    description: "",
+    applyTds: false,
+    tdsAmount: "",
+    paymentStage: "full",
+  });
 
   // Partial Payment Prompt Modal State
   const [partialPromptModal, setPartialPromptModal] = useState({
@@ -1718,8 +1719,8 @@ const calculateEndDate = (startDateStr, cycle) => {
       const sellerVal = tempProduct.customSellerPrice !== ""
         ? parseFloat(tempProduct.customSellerPrice)
         : (currentSubCat.sellerPrice !== null && currentSubCat.sellerPrice !== undefined
-            ? parseFloat(currentSubCat.sellerPrice)
-            : NaN);
+          ? parseFloat(currentSubCat.sellerPrice)
+          : NaN);
       if (isNaN(sellerVal) || sellerVal <= 0) {
         toast.error("Please enter a valid Selling Price for this service");
         return;
@@ -1821,7 +1822,7 @@ const calculateEndDate = (startDateStr, cycle) => {
       costPrice: isOneTimePayment ? 0 : computedPrices.finalCost,
       quantity: parseInt(tempProduct.quantity) || 1,
       oneTimePayment: isOneTimePayment,
-       billingCycle: tempProduct.billingCycle || "yearly",
+      billingCycle: tempProduct.billingCycle || "yearly",
       validationEnabled: isOneTimePayment ? false : isValidationEnabled,
       startDate: isOneTimePayment ? "" : (isValidationEnabled ? startDateVal : ""),
       endDate: isOneTimePayment ? "" : (isValidationEnabled ? endDateVal : ""),
@@ -2401,7 +2402,7 @@ const calculateEndDate = (startDateStr, cycle) => {
 
       const finalOrder = {
         ...activeOrder,
-         billingCycle: activeOrder.billingCycle || tempProduct.billingCycle || "yearly",
+        billingCycle: activeOrder.billingCycle || tempProduct.billingCycle || "yearly",
         products: activeOrder.products.map(p => ({
           ...p,
           price: p.price === "" ? 0 : (parseFloat(p.price) || 0)
@@ -2447,15 +2448,15 @@ const calculateEndDate = (startDateStr, cycle) => {
 
       if (openPaymentAfterSave) {
         setPaymentForm(prev => ({
-  ...prev,
-  amount: subtotal || savedOrder.totalPrice || "",
-  state: finalCustomer.state || "",
-  gstin: finalCustomer.gstin || "",
-  paymentDate: currentDate,
-  description: "",
-  applyTds: false,
-  tdsAmount: "",
-}));
+          ...prev,
+          amount: subtotal || savedOrder.totalPrice || "",
+          state: finalCustomer.state || "",
+          gstin: finalCustomer.gstin || "",
+          paymentDate: currentDate,
+          description: "",
+          applyTds: false,
+          tdsAmount: "",
+        }));
         setIsPaymentModalOpen(true);
       } else {
         if (location.state?.fromReminders) {
@@ -2543,18 +2544,18 @@ const calculateEndDate = (startDateStr, cycle) => {
 
 
     if (paymentForm.applyTds) {
-  const tdsAmount = Number(paymentForm.tdsAmount);
+      const tdsAmount = Number(paymentForm.tdsAmount);
 
-  if (!tdsAmount || tdsAmount <= 0) {
-    toast.error("Please enter a valid TDS amount.");
-    return;
-  }
+      if (!tdsAmount || tdsAmount <= 0) {
+        toast.error("Please enter a valid TDS amount.");
+        return;
+      }
 
-  if (tdsAmount > amt) {
-    toast.error("TDS amount cannot be greater than the payment amount.");
-    return;
-  }
-}
+      if (tdsAmount > amt) {
+        toast.error("TDS amount cannot be greater than the payment amount.");
+        return;
+      }
+    }
 
 
     const { customer, order } = savedOrderContext;
@@ -2679,6 +2680,174 @@ const calculateEndDate = (startDateStr, cycle) => {
     }
   };
 
+  const handleSavePaymentFromManagement = async (paymentData, targetOrder, orderIdx) => {
+    const customer = savedOrderContext.customer || selectedCustomer;
+    const order = targetOrder || savedOrderContext.order || activeOrder;
+    if (!customer || !order) {
+      toast.error("Customer or Order context missing");
+      return;
+    }
+
+    setRecordingPayment(true);
+    try {
+      const amt = Number(paymentData.amount) || 0;
+      const gstValue = paymentData.gstvalue || 0;
+
+      const newPayment = {
+        date: paymentData.date || currentDate,
+        amount: amt,
+        gstvalue: gstValue,
+        paymentType: paymentData.paymentType || "base",
+        withGst: !!paymentData.withGst,
+        description: paymentData.description || "",
+        paymentStage: paymentData.paymentStage || "full",
+        stageNumber: paymentData.stageNumber,
+        selectedOrderIds: [String(order._id)],
+      };
+
+      const updatedOrders = (customer.orders || []).map(o => {
+        if (String(o._id) === String(order._id)) {
+          const payments = [...(o.payments || []), newPayment];
+          const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+          let resolvedPaymentStatus = totalPaid >= o.totalPrice ? "Fully Paid" : "Partially Paid";
+          if (paymentData.paymentStage === 'advance' || paymentData.paymentStage === 'mid') {
+            resolvedPaymentStatus = "Partially Paid";
+          } else if (paymentData.paymentStage === 'final' || paymentData.paymentStage === 'full') {
+            resolvedPaymentStatus = "Fully Paid";
+          }
+          return {
+            ...o,
+            payments,
+            paymentStatus: resolvedPaymentStatus,
+          };
+        }
+        return o;
+      });
+
+      const updatedCustomer = await updateCustomer(customer._id, {
+        ...customer,
+        orders: updatedOrders,
+        ...(paymentData.withGst && paymentData.gstin ? { gstin: paymentData.gstin } : {}),
+      });
+
+      const finalOrders = updatedCustomer?.orders || updatedOrders;
+      const finalOrder = finalOrders.find(o => String(o._id) === String(order._id)) || order;
+      const finalCustomer = updatedCustomer || customer;
+
+      setSelectedCustomer(finalCustomer);
+      setActiveOrder(finalOrder);
+      setSavedOrderContext({ customer: finalCustomer, order: finalOrder });
+
+      toast.success("Payment recorded successfully");
+      setIsPaymentModalOpen(false);
+
+      // Check if automatic payment email is disabled
+      try {
+        const pcSettings = await getPaymentConfirmationSettings();
+        if (pcSettings && pcSettings.sendPaymentConfirmationEmail === false) {
+          const recordedP = finalOrder.payments?.[finalOrder.payments.length - 1];
+          if (recordedP) {
+            setTimeout(() => {
+              handleOpenPaymentCompose(finalCustomer, finalOrder, recordedP._id);
+            }, 500);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not check payment confirmation settings:", err);
+      }
+
+      // Check invoice prompt
+      const invoiceType = paymentData.withGst ? "withGST" : "withoutGST";
+      let nextNo = "";
+      try {
+        nextNo = await getNextInvoiceNumber(invoiceType, paymentData.date || currentDate);
+      } catch (_) { }
+
+      if (finalOrder.paymentStatus === "Partially Paid") {
+        setPartialPromptModal({
+          isOpen: true,
+          paidAmount: amt,
+          nextInvoiceNo: nextNo,
+        });
+      } else {
+        setInvoiceModal({
+          isOpen: true,
+          step: "actions",
+          customInvoiceNo: nextNo,
+          paymentStatus: "Paid",
+          isSaving: false,
+          pdfBlob: null,
+          pdfUrl: null,
+          filename: "",
+        });
+      }
+    } catch (err) {
+      console.error("Payment save failed:", err);
+      toast.error("Failed to record payment");
+    } finally {
+      setRecordingPayment(false);
+    }
+  };
+
+  const handleGenerateInvoiceFromManagement = (detail) => {
+    setIsPaymentModalOpen(false);
+    const targetOrder = detail.order || savedOrderContext.order || activeOrder;
+    const targetCustomer = detail.customer || savedOrderContext.customer || selectedCustomer;
+    if (!targetOrder || !targetCustomer) return;
+
+    const isFullyPaid = (detail.balanceDue === 0);
+    const orderPayments = targetOrder.payments || [];
+    const latestPayment = detail.specificPayment || detail.latestPayment || orderPayments[orderPayments.length - 1];
+
+    if (detail.isSeparateInvoice && detail.specificPayment) {
+      const sp = detail.specificPayment;
+      const paymentDataObj = {
+        paymentId: sp._id || `${targetOrder._id}_pay_${sp.date || currentDate}`,
+        amount: Number(sp.amount) || 0,
+        description: sp.description || "",
+        date: sp.date || currentDate,
+        withGst: !!sp.withGst,
+        paymentType: sp.paymentType || "base",
+        paymentStage: sp.paymentStage || "mid",
+        stageNumber: sp.stageNumber,
+        invoiceCategory: "installment",
+        includePaymentHistory: false,
+        products: targetOrder.products || [],
+        domainUrl: targetOrder.domainUrl,
+        orderId: targetOrder._id,
+        selectedOrderIds: [String(targetOrder._id)],
+      };
+
+      setInvoiceModal({
+        isOpen: true,
+        step: "actions",
+        customInvoiceNo: "",
+        paymentStatus: "Paid",
+        paymentData: paymentDataObj,
+        withGst: !!sp.withGst,
+        isSaving: false,
+        pdfBlob: null,
+        pdfUrl: null,
+        filename: "",
+      });
+      return;
+    }
+
+    // Complete / Full invoice
+    setInvoiceModal({
+      isOpen: true,
+      step: "actions",
+      customInvoiceNo: "",
+      paymentStatus: isFullyPaid ? "Paid" : "Partially Paid",
+      paymentData: null,
+      withGst: !!targetOrder.withGst || !!latestPayment?.withGst,
+      isSaving: false,
+      pdfBlob: null,
+      pdfUrl: null,
+      filename: "",
+    });
+  };
+
   const handleGenerateInvoicePreview = async () => {
     const { customer, order } = savedOrderContext;
     if (!customer || !order) return;
@@ -2710,24 +2879,24 @@ const calculateEndDate = (startDateStr, cycle) => {
       const invCat = isFin ? 'consolidated' : (isInst ? 'installment' : 'regular');
 
       const paymentData = latestPayment ? {
-  paymentId: latestPayment._id || `${order._id}_pay_${latestPayment.date}`,
-  amount: latestPayment.amount,
-  description: latestPayment.description || "",
-  date: latestPayment.date,
-  withGst: latestPayment.withGst,
-  paymentType: latestPayment.paymentType,
-  paymentStage: currentStage,
-  invoiceCategory: invCat,
-  includePaymentHistory: isFin,
+        paymentId: latestPayment._id || `${order._id}_pay_${latestPayment.date}`,
+        amount: latestPayment.amount,
+        description: latestPayment.description || "",
+        date: latestPayment.date,
+        withGst: latestPayment.withGst,
+        paymentType: latestPayment.paymentType,
+        paymentStage: currentStage,
+        invoiceCategory: invCat,
+        includePaymentHistory: isFin,
 
-  // TDS
-  tdsAmount: latestPayment.tdsAmount || 0,
+        // TDS
+        tdsAmount: latestPayment.tdsAmount || 0,
 
-  products: order.products,
-  domainUrl: order.domainUrl,
-  orderId: order._id,
-  selectedOrderIds: [String(order._id)],
-} : null;
+        products: order.products,
+        domainUrl: order.domainUrl,
+        orderId: order._id,
+        selectedOrderIds: [String(order._id)],
+      } : null;
 
       const pdfBlob = await generateInvoicePdf(
         customer._id,
@@ -3082,11 +3251,10 @@ const calculateEndDate = (startDateStr, cycle) => {
                             <button
                               type="button"
                               onClick={() => openDeactiveModal(idx)}
-                              className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
-                                p.deactive
-                                  ? "text-error bg-error/10 hover:bg-error/20 border border-error/20"
-                                  : "text-on-surface-variant bg-surface-container-high hover:text-error hover:bg-error/10 border border-outline-variant/40"
-                              }`}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all cursor-pointer ${p.deactive
+                                ? "text-error bg-error/10 hover:bg-error/20 border border-error/20"
+                                : "text-on-surface-variant bg-surface-container-high hover:text-error hover:bg-error/10 border border-outline-variant/40"
+                                }`}
                               title={p.deactive ? `Deactive (${formatDeactiveDate(p.deactiveYear)})` : "Deactivate Service"}
                             >
                               <span className="material-symbols-outlined text-[15px]">
@@ -3418,44 +3586,42 @@ const calculateEndDate = (startDateStr, cycle) => {
                         </label>
                       </div>
                       <div className="flex gap-2 items-center">
-  <label className="text-xs font-bold text-on-surface-variant">Billing Cycle:</label>
-  <button
-    type="button"
-    onClick={() => {
-      const newCycle = "yearly";
-      setTempProduct(p => ({
-        ...p,
-        billingCycle: newCycle,
-        endDate: calculateEndDate(p.startDate, newCycle)
-      }));
-    }}
-    className={`px-3 py-1 rounded text-xs font-bold ${
-      tempProduct.billingCycle === "yearly" ? "bg-primary text-white" : "bg-surface-variant"
-    }`}
-  >
-    Yearly
-  </button>
-  <button
-    type="button"
-    onClick={() => {
-      const newCycle = "monthly";
-      setTempProduct(p => ({
-        ...p,
-        billingCycle: newCycle,
-        endDate: calculateEndDate(p.startDate, newCycle)
-      }));
-    }}
-    className={`px-3 py-1 rounded text-xs font-bold ${
-      tempProduct.billingCycle === "monthly" ? "bg-primary text-white" : "bg-surface-variant"
-    }`}
-  >
-    Monthly
-  </button>
-</div>
+                        <label className="text-xs font-bold text-on-surface-variant">Billing Cycle:</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCycle = "yearly";
+                            setTempProduct(p => ({
+                              ...p,
+                              billingCycle: newCycle,
+                              endDate: calculateEndDate(p.startDate, newCycle)
+                            }));
+                          }}
+                          className={`px-3 py-1 rounded text-xs font-bold ${tempProduct.billingCycle === "yearly" ? "bg-primary text-white" : "bg-surface-variant"
+                            }`}
+                        >
+                          Yearly
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCycle = "monthly";
+                            setTempProduct(p => ({
+                              ...p,
+                              billingCycle: newCycle,
+                              endDate: calculateEndDate(p.startDate, newCycle)
+                            }));
+                          }}
+                          className={`px-3 py-1 rounded text-xs font-bold ${tempProduct.billingCycle === "monthly" ? "bg-primary text-white" : "bg-surface-variant"
+                            }`}
+                        >
+                          Monthly
+                        </button>
+                      </div>
 
                       {tempProduct.validationEnabled && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
-                                                   <div className="space-y-sm">
+                          <div className="space-y-sm">
                             <label className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">
                               {tempProduct.billingCycle === "monthly" ? "No. of Months" : "No. of Years"}
                             </label>
@@ -3529,7 +3695,7 @@ const calculateEndDate = (startDateStr, cycle) => {
                               }}
                               className="w-full h-[38px] bg-surface-container-lowest border border-outline-variant rounded-lg px-md font-semibold text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
                             />
-                          </div> 
+                          </div>
 
                           <div className="space-y-sm">
                             <label className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">
@@ -3995,333 +4161,22 @@ const calculateEndDate = (startDateStr, cycle) => {
       )}
 
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-md bg-on-background/30 backdrop-blur-[2px] animate-in fade-in duration-200">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-[480px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-md md:p-lg border-b border-outline-variant/30 bg-surface-container-low flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-sm text-primary">
-                <span className="material-symbols-outlined text-[24px]">payments</span>
-                <div>
-                  <h3 className="text-lg font-black text-on-surface">Record Payment</h3>
-                  <p className="text-xs text-primary font-bold">
-                    {savedOrderContext.customer?.name || selectedCustomer?.name}
-                  </p>
-                </div>
-              </div>
-              <button type="button" onClick={handleSkipPayment} className="w-8 h-8 flex items-center justify-center hover:bg-surface-variant rounded-full cursor-pointer transition-colors text-on-surface-variant">
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <div className="p-md md:p-lg space-y-md overflow-y-auto custom-scrollbar flex-1">
-              <div className="bg-primary/5 p-md rounded-xl border border-primary/10 flex justify-between items-center">
-                <span className="text-xs font-bold text-on-surface-variant">Order Total</span>
-                <span className="text-lg font-black text-primary">
-                  ₹{(savedOrderContext.order?.totalPrice || 0).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="space-y-sm">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">Payment Date</label>
-                <input
-                  type="date"
-                  value={paymentForm.paymentDate}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))}
-                  onClick={(e) => { try { e.target.showPicker(); } catch (_) { } }}
-                  className="w-full h-[42px] bg-surface-container-low border border-outline-variant rounded-xl px-md font-semibold text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
-                />
-              </div>
-
-              {/* Payment Stage Selector with Smart Advance Locking */}
-              {(() => {
-                const alreadyHasAdvance = (activeOrder?.payments || []).some(p => p.paymentStage === 'advance');
-
-                return (
-                  <div className="space-y-sm">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">Payment Stage</label>
-                      {alreadyHasAdvance && (
-                        <span className="text-[10px] text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                          Advance Already Recorded
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                      {[
-                        { id: "full", label: "Full / Normal", icon: "check_circle" },
-                        { id: "advance", label: "Advance", icon: "arrow_circle_right", disabled: alreadyHasAdvance },
-                        { id: "mid", label: "Next Payment", icon: "timelapse" },
-                        { id: "final", label: "Final Amount", icon: "task_alt" }
-                      ].map((stage) => (
-                        <button
-                          key={stage.id}
-                          type="button"
-                          disabled={stage.disabled}
-                          onClick={() => setPaymentForm(prev => ({ ...prev, paymentStage: stage.id }))}
-                          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition-all ${
-                            stage.disabled
-                              ? "opacity-35 cursor-not-allowed bg-surface-container-low border-outline-variant/30 text-on-surface-variant line-through"
-                              : paymentForm.paymentStage === stage.id
-                                ? "bg-primary text-on-primary border-primary shadow-sm cursor-pointer"
-                                : "bg-surface-container-low text-on-surface border-outline-variant/60 hover:bg-surface-variant cursor-pointer"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[18px] mb-0.5">{stage.icon}</span>
-                          <span className="text-[11px] font-semibold">{stage.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {alreadyHasAdvance && paymentForm.paymentStage === 'advance' && (
-                      <p className="text-[11px] text-amber-600 font-bold">
-                        ⚠️ Advance already paid for this order. Please choose Next Payment or Final Amount.
-                      </p>
-                    )}
-                    {paymentForm.paymentStage === 'advance' && !alreadyHasAdvance && (
-                      <p className="text-[11px] text-amber-600 font-medium">
-                        Advance 1st Payment. An advance invoice can be issued.
-                      </p>
-                    )}
-                    {paymentForm.paymentStage === 'mid' && (
-                      <p className="text-[11px] text-blue-600 font-medium">
-                        Sequential Part Payment (Second / Third Payment). An installment invoice can be issued.
-                      </p>
-                    )}
-                    {paymentForm.paymentStage === 'final' && (
-                      <p className="text-[11px] text-emerald-600 font-medium">
-                        Final Amount Settlement.
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="space-y-sm">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">Payment Amount (₹)</label>
-                <input
-                  type="number"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="Enter amount..."
-                  className="w-full h-[42px] bg-surface-container-low border border-outline-variant rounded-xl px-md font-black text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
-                />
-              </div>
-
-              <div className="space-y-sm">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">GST Option</label>
-                <div className="grid grid-cols-2 gap-sm p-1 bg-surface-container-low border border-outline-variant rounded-xl">
-                  <button type="button" onClick={() => setPaymentForm(prev => ({ ...prev, withGst: false }))} className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${!paymentForm.withGst ? "bg-primary text-on-primary shadow-sm" : "text-on-surface hover:bg-surface-variant/50"}`}>
-                    Without GST
-                  </button>
-                  <button type="button" onClick={() => setPaymentForm(prev => ({ ...prev, withGst: true }))} className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${paymentForm.withGst ? "bg-primary text-on-primary shadow-sm" : "text-on-surface hover:bg-surface-variant/50"}`}>
-                    With GST
-                  </button>
-                </div>
-              </div>
-
-              {paymentForm.withGst && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-md animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-sm">
-                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">State</label>
-                    <div className={`w-full h-[42px] bg-surface-container border rounded-xl px-md font-semibold text-sm flex items-center gap-xs ${paymentForm.state ? 'border-outline-variant text-on-surface' : 'border-error/50 text-on-surface-variant'}`}>
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">location_on</span>
-                      <span className={paymentForm.state ? 'text-on-surface' : 'text-on-surface-variant italic'}>
-                        {paymentForm.state || 'No state on file'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-sm">
-                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">GSTIN <span className="text-error">*</span></label>
-                    <input
-                      type="text"
-                      value={paymentForm.gstin}
-                      onChange={(e) => setPaymentForm(prev => ({ ...prev, gstin: e.target.value }))}
-                      placeholder="Enter GSTIN..."
-                      className={`w-full h-[42px] bg-surface-container-low border rounded-xl px-md font-semibold text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono ${paymentForm.gstin.trim() ? 'border-outline-variant text-on-surface' : 'border-error/50 text-on-surface-variant'}`}
-                    />
-                  </div>
-                </div>
-              )}
-
-
-              {/* TDS Option */}
-<div className="space-y-sm">
-  <div className="flex items-center justify-between">
-    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">
-      TDS Deduction
-    </label>
-
-    <button
-      type="button"
-      onClick={() =>
-        setPaymentForm(prev => ({
-          ...prev,
-          applyTds: !prev.applyTds,
-          tdsAmount: !prev.applyTds ? prev.tdsAmount : "",
-        }))
-      }
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
-        paymentForm.applyTds
-          ? "bg-primary"
-          : "bg-surface-variant"
-      }`}
-      aria-label="Toggle TDS deduction"
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-          paymentForm.applyTds
-            ? "translate-x-4"
-            : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  </div>
-
-  {paymentForm.applyTds && (
-    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-2">
-        TDS Amount (₹)
-      </label>
-
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        value={paymentForm.tdsAmount}
-        onChange={(e) =>
-          setPaymentForm(prev => ({
-            ...prev,
-            tdsAmount: e.target.value,
-          }))
-        }
-        onFocus={(e) => e.target.select()}
-        placeholder="Enter TDS amount..."
-        className="w-full h-[42px] bg-surface-container-low border border-outline-variant rounded-xl px-md font-black text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
-      />
-    </div>
-  )}
-</div>
-
-              <div className="space-y-sm">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">Description (Optional)</label>
-                <input
-                  type="text"
-                  value={paymentForm.description}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Payment notes..."
-                  className="w-full h-[42px] bg-surface-container-low border border-outline-variant rounded-xl px-md font-semibold text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
-                />
-              </div>
-
-              {paymentForm.amount && (() => {
-                const amt = Number(paymentForm.amount) || 0;
-                const cgst = amt * (gstRates.cgst / 100);
-                const sgst = amt * (gstRates.sgst / 100);
-                const igst = amt * (gstRates.igst / 100);
-
-               const total = paymentForm.withGst
-  ? (
-      paymentForm.state === "Tamil Nadu"
-        ? amt + cgst + sgst
-        : amt + igst
-    )
-  : amt;
-
-const tds = paymentForm.applyTds
-  ? Number(paymentForm.tdsAmount) || 0
-  : 0;
-
-const netAmount = Math.max(0, total - tds);
-
-// Round total exactly like invoice PDF
-const integerPart = Math.floor(total);
-const decimalPart = Number((total - integerPart).toFixed(2));
-
-const roundedTotal =
-  decimalPart >= 0.50
-    ? integerPart + 1
-    : integerPart;
-
-
-
-const fmt = (n) =>
-  Number(n.toFixed(2)).toLocaleString(undefined, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 2,
-  });
-
-return (
-  <div className="bg-surface-container-low p-md rounded-xl border border-outline-variant/30 space-y-1 text-xs">
-    <div className="flex justify-between font-bold text-on-surface-variant">
-      <span>Base Amount:</span>
-      <span>₹{fmt(amt)}</span>
-    </div>
-
-    {paymentForm.withGst && (
-      paymentForm.state === "Tamil Nadu" ? (
-        <>
-          <div className="flex justify-between text-on-surface-variant">
-            <span>CGST ({gstRates.cgst}%):</span>
-            <span>₹{fmt(cgst)}</span>
-          </div>
-
-          <div className="flex justify-between text-on-surface-variant">
-            <span>SGST ({gstRates.sgst}%):</span>
-            <span>₹{fmt(sgst)}</span>
-          </div>
-        </>
-      ) : paymentForm.state ? (
-        <div className="flex justify-between text-on-surface-variant">
-          <span>IGST ({gstRates.igst}%):</span>
-          <span>₹{fmt(igst)}</span>
-        </div>
-      ) : null
-    )}
-
-    <div className="flex justify-between font-black text-primary pt-2 border-t border-outline-variant/30 text-sm">
-      <span>Total:</span>
-      <span>₹{fmt(total)}</span>
-    </div>
-
-    {paymentForm.applyTds && tds > 0 && (
-      <>
-        <div className="flex justify-between text-on-surface-variant">
-          <span>Less: TDS Deducted by Customer:</span>
-          <span>₹{fmt(tds)}</span>
-        </div>
-
-        <div className="flex justify-between font-black text-primary pt-2 border-t border-outline-variant/30 text-sm">
-          <span>Net Amount Received:</span>
-          <span>₹{fmt(netAmount)}</span>
-        </div>
-      </>
-    )}
-  </div>
-);
-              })()}
-            </div>
-
-            <div className="p-md md:p-lg border-t border-outline-variant/30 bg-surface-container-low flex justify-end gap-sm shrink-0">
-              <button
-                type="button"
-                onClick={handlePaymentSubmit}
-                disabled={recordingPayment}
-                className="px-xl py-2 bg-primary text-on-primary font-bold text-xs rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-xs"
-              >
-                {recordingPayment ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
-                    Recording...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[16px]">payments</span>
-                    Record Payment
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PaymentManagement
+          isOpen={isPaymentModalOpen}
+          onClose={handleSkipPayment}
+          customer={savedOrderContext.customer || selectedCustomer || {}}
+          order={savedOrderContext.order || activeOrder || {}}
+          orderIdx={(() => {
+            const cust = savedOrderContext.customer || selectedCustomer;
+            const ord = savedOrderContext.order || activeOrder;
+            if (!cust || !ord || !cust.orders) return 0;
+            const idx = cust.orders.findIndex(o => String(o._id) === String(ord._id));
+            return idx !== -1 ? idx : 0;
+          })()}
+          gstRates={gstRates}
+          onSavePayment={handleSavePaymentFromManagement}
+          onGenerateInvoice={handleGenerateInvoiceFromManagement}
+        />
       )}
 
       {/* Partial Payment Invoice Confirmation Prompt Modal */}
