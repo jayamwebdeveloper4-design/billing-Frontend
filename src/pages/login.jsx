@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { requestLoginOtp, verifyLoginOtp } from "../api/userApi";
+import { useRequestLoginOtpMutation, useVerifyLoginOtpMutation } from "../Redux/User";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
@@ -12,11 +12,15 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const [requestLoginOtpMutation, { isLoading: isRequestingOtp }] = useRequestLoginOtpMutation();
+  const [verifyLoginOtpMutation, { isLoading: isVerifyingOtp }] = useVerifyLoginOtpMutation();
+
   // Step 1: 'email' | Step 2: 'otp'
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(new Array(OTP_LENGTH).fill(""));
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const loading = localLoading || isRequestingOtp || isVerifyingOtp;
 
   // Timers
   const [expirySeconds, setExpirySeconds] = useState(OTP_EXPIRY_SECONDS);
@@ -68,9 +72,9 @@ const Login = () => {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
     try {
-      const response = await requestLoginOtp(cleanEmail);
+      const response = await requestLoginOtpMutation(cleanEmail).unwrap();
       toast.success(response?.message || "Verification code dispatched to your email!");
       setStep("otp");
       setOtp(new Array(OTP_LENGTH).fill(""));
@@ -82,10 +86,10 @@ const Login = () => {
         inputRefs.current[0]?.focus();
       }, 100);
     } catch (err) {
-      const msg = err.response?.data?.message || "Failed to dispatch verification code";
+      const msg = err?.data?.message || err?.message || "Failed to dispatch verification code";
       toast.error(msg);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
@@ -130,20 +134,23 @@ const Login = () => {
   // Trigger verify with full string
   const triggerVerify = async (codeToVerify) => {
     if (loading) return;
-    setLoading(true);
+    setLocalLoading(true);
     try {
-      const data = await verifyLoginOtp(email.trim().toLowerCase(), codeToVerify);
+      const data = await verifyLoginOtpMutation({
+        email: email.trim().toLowerCase(),
+        otp: codeToVerify,
+      }).unwrap();
       login(data);
       toast.success("Welcome back! Login verified.");
       navigate("/dashboard");
     } catch (err) {
-      const msg = err.response?.data?.message || "Invalid or expired verification code";
+      const msg = err?.data?.message || err?.message || "Invalid or expired verification code";
       toast.error(msg);
       // Clear OTP on error and re-focus first box
       setOtp(new Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 

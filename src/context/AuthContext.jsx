@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import Cookies from 'js-cookie';
-import { getAdminProfile, logoutAdmin as apiLogout } from '../api/userApi';
+import { userApi } from '../Redux/User';
+import { store } from '../Redux/store';
 
 const AuthContext = createContext();
 
@@ -14,7 +15,9 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       setLoading(true);
-      const profile = await getAdminProfile();
+      const profile = await store
+        .dispatch(userApi.endpoints.getAdminProfile.initiate(undefined, { forceRefetch: true }))
+        .unwrap();
       setAdmin(profile);
       setIsAuthenticated(true);
     } catch (error) {
@@ -36,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await apiLogout();
+      await store.dispatch(userApi.endpoints.logoutAdmin.initiate()).unwrap();
     } catch (error) {
       console.error('Logout failed', error);
     } finally {

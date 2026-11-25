@@ -10,13 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.15.0",
     "axios": "^1.16.0",
     "js-cookie": "^3.0.5",
+    "lucide-react": "^1.75.0",
+    "lucide-react-native": "^1.75.0",
     "pg": "^8.20.0",
     "pg-hstore": "^2.3.4",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-hot-toast": "^2.6.0",
+    "react-redux": "^9.3.1",
     "react-router-dom": "^7.15.0",
     "xlsx": "^0.18.5"
   },
@@ -27,7 +31,7 @@
     "@tailwindcss/postcss": "^4.2.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.5.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -35,6 +39,6 @@
     "globals": "^17.5.0",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.2.4",
-    "vite": "^8.0.10"
+    "vite": "^6.2.7"
   }
 }

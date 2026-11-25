@@ -9,24 +9,27 @@ import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
 import { useAuth } from "./context/AuthContext";
 import "./App.css";
+import Customer from "./Feature/Customers/Customer";
+import CustomerDetails from "./Feature/Customers/CustomerDetails";
+import Renewal from "./Feature/Renewals/Renewal";
+import SMTPSetting from "./Feature/SMTP/SMTPSetting";
+import GstSettings from "./Feature/GstSettings/GstSettings";
+import Proforma from "./Feature/Prodorma/Proforma";
+import Profile from "./Feature/Profile/Profile";
 
 // Lazy-loaded pages
 const Login = lazy(() => import("./pages/login"));
 const Dashboard = lazy(() => import("./pages/dashboard"));
-const AddProduct = lazy(() => import("./pages/AddProduct"));
-const Customers = lazy(() => import("./pages/Customers"));
-const NewOrder = lazy(() => import("./pages/NewOrder"));
-const Reminders = lazy(() => import("./pages/Reminders"));
-const Profile = lazy(() => import("./pages/Profile"));
-const GstSettings = lazy(() => import("./pages/GstSettings"));
+const Product = lazy(() => import("./Feature/Product/Product"));
+
+const NewCustomerOrder = lazy(() => import("./Feature/CustomerProduct/NewOder"));
+
 const RevenueManagement = lazy(() => import("./pages/RevenueManagement"));
-const SMTPSetting = lazy(() => import("./pages/SMTPSetting"));
 const ReportManagement = lazy(() => import("./pages/ReportManagement"));
-const Proforma = lazy(() => import("./pages/Proforma"));
-const Invoices = lazy(() => import("./pages/Invoices"));
-const Expenses = lazy(() => import("./pages/Expenses/Expenses"));
-const EmployeeTimeSheet = lazy(() => import("./pages/Expenses/EmployeeTimeSheet"));
-const ProjectTimeSheet = lazy(() => import("./pages/Expenses/ProjectTimeSheet"));
+const Invoices = lazy(() => import("./Feature/Invoice/Invoices"));
+const Expenses = lazy(() => import("./Feature/Expenses/Expenses"));
+const EmployeeTimeSheet = lazy(() => import("./Feature/Expenses/EmployeeTimeSheet"));
+const ProjectTimeSheet = lazy(() => import("./Feature/Expenses/ProjectTimeSheet"));
 function App() {
   const basename = import.meta.env.VITE_BASENAME || "/";
   const { isAuthenticated, loading } = useAuth();
@@ -87,15 +90,20 @@ function App() {
           {/* Protected Routes with Layout */}
           <Route element={isAuthenticated ? <Layout /> : <Navigate to="/login" replace />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/products/add" element={<AddProduct />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/website" element={<Customers isWebsiteOnly={true} />} />
-            <Route path="/new-order/:customerId" element={<NewOrder />} />
-            <Route path="/new-order/:customerId/:orderId" element={<NewOrder />} />
-            <Route path="/renewal" element={<Reminders />} />
+            <Route path="/products" element={<Product />} />
+            <Route path="/products/add" element={<Product />} />
+            <Route path="/customers" element={<Customer />} />
+            <Route path="/customers/:id" element={<CustomerDetails />} />
+            <Route path="/customer/:id" element={<CustomerDetails />} />
+            {/* <Route path="/website" element={<Customers isWebsiteOnly={true} />} /> */}
+            <Route path="/new-order/:customerId" element={<NewCustomerOrder />} />
+            <Route path="/new-order/:customerId/:orderId" element={<NewCustomerOrder />} />
+            <Route path="/renewal" element={<Renewal />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/gst-settings" element={<GstSettings />} />
+            <Route path="/gst-setting" element={<GstSettings />} />
             <Route path="/proforma" element={<Proforma />} />
+            <Route path="/proformas" element={<Proforma />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route
@@ -117,6 +125,8 @@ function App() {
             <Route path="/revenue" element={<RevenueManagement />} />
             <Route path="/reports" element={<ReportManagement />} />
             <Route path="/smtp-settings" element={<SMTPSetting />} />
+            <Route path="/smtp-setting" element={<SMTPSetting />} />
+            <Route path="/smtp" element={<SMTPSetting />} />
             {/* Add other protected routes here */}
           </Route>
           <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />

@@ -42,12 +42,16 @@ const Layout = () => {
       '/renewal': 'Renewals',
       '/invoices': 'Invoices',
       '/proforma': 'Proforma Invoices',
+      '/proformas': 'Proforma Invoices',
       '/expenses': 'Expenses',
       '/revenue': 'Revenue & Payments',
       '/reports': 'Report & Domains',
       '/gst-settings': 'GST Settings',
+      '/gst-setting': 'GST Settings',
       '/profile': 'Admins & Users',
       '/smtp-settings': 'SMTP Settings',
+      '/smtp-setting': 'SMTP Settings',
+      '/smtp': 'SMTP Settings',
     };
 
     const path = location.pathname;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getReportData, exportReportExcelApi } from '../api/customerApi';
+import { getReportData, exportReportExcelApi } from '../api/dashboardApi';
 import toast from 'react-hot-toast';
 
 const ReportManagement = () => {
