@@ -51,7 +51,7 @@ export const Detials = ({ selectedProforma, onClose, onDownloadPdf }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-[700px] overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-[700px] overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 relative max-h-[90vh] overflow-y-auto no-scrollbar">
         {/* Modal Header */}
         <div className="flex justify-between items-start border-b border-gray-100 pb-4">
           <div>
@@ -129,6 +129,18 @@ export const Detials = ({ selectedProforma, onClose, onDownloadPdf }) => {
             </tbody>
           </table>
         </div>
+
+        {/* Description */}
+        {selectedProforma.description && (
+          <div className="bg-gray-50 rounded-xl p-4 text-xs space-y-1">
+            <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider block">
+              Description
+            </span>
+            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+              {selectedProforma.description}
+            </p>
+          </div>
+        )}
 
         {/* Calculations Breakdown */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-xs">

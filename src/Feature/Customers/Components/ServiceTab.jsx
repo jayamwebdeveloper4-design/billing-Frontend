@@ -9,12 +9,14 @@ import {
   ExternalLink,
   CreditCard,
   Loader2,
+  History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../../../UI/Components/Button';
 import Table from '../../../UI/Components/Table';
 import PaymentManagement from '../../../components/PaymentMenagement';
 import Addproject from './Addproject';
+import OldOrderAndPymentHistory from './OldOrderAndPymentHistory';
 import {
   useGetProductsQuery,
   useSetDeactiveProductMutation,
@@ -30,6 +32,7 @@ export const ServiceTab = ({ customer }) => {
   // Selected order for PaymentManagement modal
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
+  const [isOldOrderOpen, setIsOldOrderOpen] = useState(false);
 
   // RTK Mutations
   const [recordOrderPayment] = useRecordOrderPaymentMutation();
@@ -362,6 +365,15 @@ export const ServiceTab = ({ customer }) => {
 
         <div className="flex items-center gap-2">
           <Button
+            onClick={() => setIsOldOrderOpen(true)}
+            size="sm"
+            variant="outline"
+            icon={History}
+            className="font-bold border-amber-200 text-amber-700 hover:bg-amber-50"
+          >
+            Old Order
+          </Button>
+          <Button
             onClick={() => setIsAddProjectOpen(true)}
             size="sm"
             variant="outline"
@@ -402,6 +414,16 @@ export const ServiceTab = ({ customer }) => {
         isOpen={isAddProjectOpen}
         onClose={() => setIsAddProjectOpen(false)}
         customerData={customer}
+      />
+
+      {/* Old Order & Payment History Modal */}
+      <OldOrderAndPymentHistory
+        isOpen={isOldOrderOpen}
+        onClose={() => setIsOldOrderOpen(false)}
+        customer={customer}
+        onSuccess={() => {
+          if (refetch) refetch();
+        }}
       />
     </div>
   );

@@ -12,14 +12,14 @@ export const Table = ({
   return (
     <div className={`w-full overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-xs ${className}`}>
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[700px]">
+        <table className="w-full text-left border-collapse min-w-[700px] font-sans">
           <thead>
             <tr className="border-b border-gray-200/80 bg-gray-50/60">
               {columns.map((col, idx) => (
                 <th
                   key={col.key || idx}
                   style={col.width ? { width: col.width } : undefined}
-                  className={`py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap align-middle ${
+                  className={`py-3.5 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap align-middle ${
                     col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                   } ${col.headerClassName || ''}`}
                 >
@@ -51,14 +51,16 @@ export const Table = ({
                 <tr
                   key={row[keyField] || rIdx}
                   onClick={() => onRowClick && onRowClick(row)}
-                  className={`transition-colors hover:bg-gray-50/60 ${
+                  style={{ animationDelay: `${Math.min(rIdx, 10) * 20}ms` }}
+                  className={`animate-row-enter h-[68px] transition-colors duration-150 hover:bg-blue-50/40 ${
                     onRowClick ? 'cursor-pointer' : ''
                   }`}
                 >
                   {columns.map((col, cIdx) => (
                     <td
                       key={col.key || cIdx}
-                      className={`py-4 px-6 text-sm text-gray-700 align-middle ${
+                      style={col.width ? { width: col.width } : undefined}
+                      className={`py-3.5 px-5 text-[13px] font-normal text-gray-700 align-middle ${
                         col.align === 'right'
                           ? 'text-right'
                           : col.align === 'center'

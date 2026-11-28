@@ -18,6 +18,8 @@ import { backupApi } from './Backup/backupApi';
 import { projectApi } from './Project/projectApi';
 import { templateApi } from './Template/templateApi';
 import { userApi } from './User/userApi';
+import { revenueApi } from './Revenue/revenueApi';
+import { reportApi } from './Report/reportApi';
 
 export const store = configureStore({
   reducer: {
@@ -47,6 +49,8 @@ export {
   projectApi,
   templateApi,
   userApi,
+  revenueApi,
+  reportApi,
 };
 
 export default store;

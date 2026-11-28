@@ -59,10 +59,16 @@ export default {
         "warning": "#ca8a04"
       },
       borderRadius: {
-        "DEFAULT": "0.125rem",
-        "lg": "0.25rem",
-        "xl": "0.5rem",
-        "full": "0.75rem"
+        "none": "0px",
+        "xs": "2px",
+        "sm": "4px",
+        "DEFAULT": "4px",
+        "md": "4px",
+        "lg": "4px",
+        "xl": "4px",
+        "2xl": "6px",
+        "3xl": "6px",
+        "full": "4px"
       },
       zIndex: {
         "100": "100",
@@ -92,7 +98,8 @@ export default {
         "7xl": "80rem",
       },
       fontFamily: {
-        "tabular-nums": ["Inter"],
+        "sans": ["Inter", "sans-serif"],
+        "tabular-nums": ["Inter", "sans-serif"],
         "h1": ["Inter"],
         "body-sm": ["Inter"],
         "h3": ["Inter"],

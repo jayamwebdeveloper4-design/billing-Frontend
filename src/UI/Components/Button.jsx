@@ -14,7 +14,7 @@ export const Button = ({
   type = 'button',
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 ease-out active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-offset-1 select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer';
 
   const variants = {
     primary: 'bg-[#0052cc] hover:bg-[#0043a8] active:bg-[#00388d] text-white shadow-xs focus:ring-blue-500/30 border border-transparent',

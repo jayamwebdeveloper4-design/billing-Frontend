@@ -106,6 +106,7 @@ export const AddProforma = ({
   const [newProformaNo, setNewProformaNo] = useState("");
   const [newDate, setNewDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [newItems, setNewItems] = useState([{ Particulars: "", price: "" }]);
+  const [newDescription, setNewDescription] = useState("");
   const [formErrors, setFormErrors] = useState({});
 
   // Dynamic GST percentages from DB settings
@@ -153,7 +154,7 @@ export const AddProforma = ({
 
   // Compute next proforma number
   const computeNextProformaNo = useCallback(
-    async (type = newGstType) => {
+    async (type = "withoutGST") => {
       try {
         const nextNo = await triggerGetNextProformaNumber({ invoiceType: type }).unwrap();
         if (nextNo) {
@@ -183,9 +184,9 @@ export const AddProforma = ({
       });
 
       const nextNumber = maxNum + 1;
-      setNewProformaNo(`${prefix}${String(nextNumber).padStart(4, "0")}`);
+      setNewProformaNo(`${prefix}${String(nextNumber).padStart(2, "0")}`);
     },
-    [proformas, newGstType]
+    [proformas, triggerGetNextProformaNumber]
   );
 
   // Reset form
@@ -205,6 +206,7 @@ export const AddProforma = ({
     setNewGstType("withoutGST");
     setNewDate(new Date().toISOString().split("T")[0]);
     setNewItems([{ Particulars: "", price: "" }]);
+    setNewDescription("");
     setFormErrors({});
     computeNextProformaNo("withoutGST");
   }, [computeNextProformaNo]);
@@ -265,11 +267,13 @@ export const AddProforma = ({
       } else {
         setNewItems([{ Particulars: "", price: "" }]);
       }
+      setNewDescription(editingProforma.description || "");
       setFormErrors({});
     } else {
       resetForm();
     }
-  }, [isOpen, editingProforma, customersList, resetForm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingProforma]);
 
   // Customer Select Handler
   const handleCustomerSelect = (customer) => {
@@ -367,8 +371,6 @@ export const AddProforma = ({
       return;
     }
 
-    setIsSaving(true);
-
     const subtotal = calculatedSubtotal;
     const cgst = calculatedCgst;
     const sgst = calculatedSgst;
@@ -398,6 +400,7 @@ export const AddProforma = ({
       totalPrice,
       priceinword: numberToWords(totalPrice),
       gstType: newGstType,
+      description: newDescription.trim(),
       note: "If you have any doubt on this invoice, please contact us at: 9677 87 6445 / 98405 99789",
     };
 
@@ -433,7 +436,7 @@ export const AddProforma = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-[740px] overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-[740px] overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto no-scrollbar">
         {/* Modal Header */}
         <div className="flex justify-between items-center border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2.5">
@@ -846,6 +849,18 @@ export const AddProforma = ({
             {formErrors.items && (
               <p className="text-xs text-red-500 font-medium">{formErrors.items}</p>
             )}
+          </div>
+
+          {/* Description */}
+          <div>
+            <InputFeild
+              label="Description"
+              as="textarea"
+              rows={2}
+              placeholder="Enter optional description or additional details..."
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+            />
           </div>
 
           {/* Calculation Summary Breakdown */}

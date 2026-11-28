@@ -32,11 +32,39 @@ const formatArrayOrString = (val) => {
 };
 
 export const Proforma = () => {
-  const { data: proformas = [], isLoading, refetch: loadProformas } = useGetProformasQuery();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const {
+    data: proformasResponse,
+    isLoading,
+    isFetching,
+    refetch: loadProformas,
+  } = useGetProformasQuery({
+    page: currentPage,
+    limit: pageSize,
+    search: searchQuery.trim(),
+  });
+
+  const proformas = useMemo(() => {
+    if (Array.isArray(proformasResponse)) return proformasResponse;
+    return Array.isArray(proformasResponse?.data) ? proformasResponse.data : [];
+  }, [proformasResponse]);
+
+  const pagination = useMemo(
+    () => ({
+      page: proformasResponse?.page ?? currentPage,
+      limit: proformasResponse?.limit ?? pageSize,
+      total: proformasResponse?.total ?? proformas.length,
+      totalPages: proformasResponse?.totalPages ?? 1,
+    }),
+    [proformasResponse, currentPage, pageSize, proformas.length]
+  );
+
   const [deleteProforma, { isLoading: isDeleting }] = useDeleteProformaMutation();
   const [generateProformaPdf] = useGenerateProformaPdfMutation();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedProforma, setSelectedProforma] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProforma, setEditingProforma] = useState(null);
@@ -44,26 +72,13 @@ export const Proforma = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [proformaToDelete, setProformaToDelete] = useState(null);
 
-  // Filter proformas based on search query
-  const filteredProformas = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return proformas;
-    return proformas.filter((p) => {
-      const companyName = (p.companyName || p.customerId?.name || "").toLowerCase();
-      const proformaNo = (p.proforma_no || "").toLowerCase();
-      const emailStr = formatArrayOrString(p.email || p.customerId?.email).toLowerCase();
-      const itemsStr = (p.items || []).map((i) => i.Particulars || "").join(" ").toLowerCase();
-      const totalStr = String(p.totalPrice || "");
-
-      return (
-        companyName.includes(query) ||
-        proformaNo.includes(query) ||
-        emailStr.includes(query) ||
-        itemsStr.includes(query) ||
-        totalStr.includes(query)
-      );
+  const handleSearchChange = useCallback((val) => {
+    setSearchQuery((prev) => {
+      if (prev === val) return prev;
+      setCurrentPage(1);
+      return val;
     });
-  }, [proformas, searchQuery]);
+  }, []);
 
   // Open Edit Modal
   const handleOpenEditModal = (item) => {
@@ -101,7 +116,7 @@ export const Proforma = () => {
     if (!proformaToDelete) return;
     const item = proformaToDelete;
     try {
-      const targetId = item._id || item.id || item.proforma_no;
+      const targetId = item._id || item.id;
       if (targetId) {
         await deleteProforma(targetId).unwrap();
       }
@@ -124,8 +139,9 @@ export const Proforma = () => {
       {
         key: "date",
         label: "Date",
+        width: "120px",
         render: (item) => (
-          <span className="text-sm text-gray-600 font-medium">
+          <span className="text-[13px] text-gray-600 font-normal whitespace-nowrap tabular-nums">
             {item.date ? new Date(item.date).toLocaleDateString("en-GB") : "—"}
           </span>
         ),
@@ -133,8 +149,9 @@ export const Proforma = () => {
       {
         key: "proforma_no",
         label: "Proforma No",
+        width: "160px",
         render: (item) => (
-          <span className="font-mono font-bold text-blue-700">
+          <span className="font-sans font-semibold text-[13px] text-blue-700 whitespace-nowrap tabular-nums">
             {item.proforma_no}
           </span>
         ),
@@ -143,11 +160,11 @@ export const Proforma = () => {
         key: "customerDetails",
         label: "Customer Details",
         render: (item) => (
-          <div className="min-w-0 max-w-[240px]">
-            <div className="font-bold text-gray-900 text-sm truncate">
+          <div className="min-w-0 max-w-[260px]">
+            <div className="font-semibold text-gray-900 text-[13px] truncate">
               {item.customerId?.name || item.companyName}
             </div>
-            <div className="text-[11px] text-gray-500 truncate mt-0.5">
+            <div className="text-[11px] font-normal text-gray-500 truncate mt-0.5">
               {formatArrayOrString(item.customerId?.phone || item.phone)} •{" "}
               {formatArrayOrString(item.customerId?.email || item.email)}
             </div>
@@ -157,8 +174,9 @@ export const Proforma = () => {
       {
         key: "totalPrice",
         label: "Total Price",
+        align: "right",
         render: (item) => (
-          <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
+          <span className="text-sm font-semibold text-gray-900 whitespace-nowrap tabular-nums">
             ₹ {Number(item.totalPrice).toLocaleString("en-IN")}
           </span>
         ),
@@ -167,6 +185,8 @@ export const Proforma = () => {
         key: "actions",
         label: "Actions",
         align: "right",
+        width: "156px",
+        cellClassName: "whitespace-nowrap",
         render: (item) => (
           <div className="flex items-center justify-end gap-1">
             <Button
@@ -221,7 +241,7 @@ export const Proforma = () => {
   );
 
   return (
-    <div className="max-w-[1440px] mx-auto p-2 md:p-2 space-y-6 animate-in fade-in duration-200">
+    <div className="max-w-[1440px] mx-auto space-y-6 animate-in fade-in duration-200">
       {/* Header UI Component */}
       <Header
         title="Proforma Invoices"
@@ -245,25 +265,64 @@ export const Proforma = () => {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <SearchBar
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={handleSearchChange}
           placeholder="Search Company Name or Proforma No..."
           className="max-w-md w-full"
         />
         <div className="text-xs font-semibold text-gray-500 flex items-center gap-2 self-end sm:self-center">
           <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
-          <span>{filteredProformas.length} Proforma Invoices</span>
+          <span>{pagination.total} Proforma Invoices</span>
         </div>
       </div>
 
       {/* Proforma Table UI Component */}
-      <Table
-        columns={columns}
-        data={filteredProformas}
-        isLoading={isLoading}
-        emptyMessage='No proforma invoices found. Click "Add Proforma" to create one.'
-        keyField="_id"
-        onRowClick={(item) => setSelectedProforma(item)}
-      />
+      <div className="space-y-4">
+        <Table
+          columns={columns}
+          data={proformas}
+          isLoading={isLoading || isFetching}
+          emptyMessage='No proforma invoices found. Click "Add Proforma" to create one.'
+          keyField="_id"
+          onRowClick={(item) => setSelectedProforma(item)}
+        />
+
+        {/* Pagination Controls */}
+        {pagination.total > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-2">
+            <span className="text-xs text-gray-500">
+              Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+              {pagination.total} proforma invoices
+            </span>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+
+              <span className="text-xs font-semibold px-2 text-gray-700">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))
+                }
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* View Detail Modal Component */}
       <Detials

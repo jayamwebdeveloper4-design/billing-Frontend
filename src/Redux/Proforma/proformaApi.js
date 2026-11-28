@@ -2,14 +2,23 @@ import { baseApi } from '../baseApi';
 
 export const proformaApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET /api/proformas - Fetch all proforma records
+    // GET /api/proformas - Fetch all proforma records (supports optional ?page=&limit= pagination)
     getProformas: builder.query({
       query: (params = {}) => ({
         url: '/proformas',
         method: 'GET',
         params,
       }),
-      transformResponse: (response) => {
+      transformResponse: (response, _meta, arg) => {
+        if (arg?.page || arg?.limit) {
+          return {
+            data: Array.isArray(response?.data) ? response.data : [],
+            page: response?.page ?? 1,
+            limit: response?.limit ?? 20,
+            total: response?.total ?? 0,
+            totalPages: response?.totalPages ?? 1,
+          };
+        }
         if (Array.isArray(response)) return response;
         if (Array.isArray(response?.data)) return response.data;
         return [];
@@ -38,6 +47,7 @@ export const proformaApi = baseApi.injectEndpoints({
         };
       },
       transformResponse: (response) => response?.proformaNo || '',
+      providesTags: [{ type: 'Proforma', id: 'NEXT_NUMBER' }],
     }),
 
     // POST /api/proformas - Create a new proforma record
@@ -47,7 +57,10 @@ export const proformaApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'Proforma', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Proforma', id: 'LIST' },
+        { type: 'Proforma', id: 'NEXT_NUMBER' },
+      ],
     }),
 
     // PUT /api/proformas/:id - Update an existing proforma record
@@ -60,6 +73,7 @@ export const proformaApi = baseApi.injectEndpoints({
       invalidatesTags: (result, error, { id }) => [
         { type: 'Proforma', id },
         { type: 'Proforma', id: 'LIST' },
+        { type: 'Proforma', id: 'NEXT_NUMBER' },
       ],
     }),
 
@@ -72,6 +86,7 @@ export const proformaApi = baseApi.injectEndpoints({
       invalidatesTags: (result, error, id) => [
         { type: 'Proforma', id },
         { type: 'Proforma', id: 'LIST' },
+        { type: 'Proforma', id: 'NEXT_NUMBER' },
       ],
     }),
 
@@ -83,6 +98,19 @@ export const proformaApi = baseApi.injectEndpoints({
         body,
         responseHandler: (response) => response.blob(),
       }),
+    }),
+
+    // POST /api/proformas/:id/convert - Convert proforma to tax invoice
+    convertProformaToInvoice: builder.mutation({
+      query: (id) => ({
+        url: `/proformas/${id}/convert`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Proforma', id },
+        { type: 'Proforma', id: 'LIST' },
+        { type: 'Invoice', id: 'LIST' },
+      ],
     }),
   }),
   overrideExisting: true,
@@ -97,4 +125,5 @@ export const {
   useUpdateProformaMutation,
   useDeleteProformaMutation,
   useGenerateProformaPdfMutation,
+  useConvertProformaToInvoiceMutation,
 } = proformaApi;

@@ -337,11 +337,11 @@ export const Renewal = () => {
               className="flex flex-col gap-0.5 cursor-pointer group max-w-[320px]"
               title="Click to view Customer Information"
             >
-              <div className="font-bold text-[#0052cc] text-sm group-hover:underline truncate">
+              <div className="font-semibold text-[#0052cc] text-sm group-hover:underline truncate">
                 {primaryName}
                 <span className="font-normal text-gray-500 text-xs">{domainUrl}</span>
               </div>
-              <div className="text-xs text-gray-500 truncate">{emailDisplay}</div>
+              <div className="text-xs font-normal text-gray-500 truncate">{emailDisplay}</div>
             </div>
           );
         },
@@ -390,7 +390,7 @@ export const Renewal = () => {
               ? row.sellerPriceRenewal
               : row.price || 0;
           return (
-            <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
+            <span className="text-sm font-semibold text-gray-900 whitespace-nowrap tabular-nums">
               ₹ {priceVal.toLocaleString('en-IN')}
             </span>
           );
@@ -572,10 +572,12 @@ export const Renewal = () => {
         action={
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             {/* Auto Reminder Global Toggle */}
-            <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
+            <div className="flex items-center gap-2.5 px-1 py-1">
               <span className="text-xs font-semibold text-gray-700">Auto Reminder</span>
               <button
                 type="button"
+                role="switch"
+                aria-checked={autoReminderEnabled}
                 onClick={handleToggleAutoReminder}
                 disabled={isUpdatingSmtp || isSmtpLoading}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${

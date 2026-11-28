@@ -270,12 +270,12 @@ export const Invoices = () => {
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#0052cc] hover:underline cursor-pointer flex items-center gap-1"
+              <span className="font-semibold text-[13px] text-[#0052cc] hover:underline cursor-pointer flex items-center gap-1 whitespace-nowrap tabular-nums"
                 onClick={() => handleOpenViewModal(inv)}
               >
                 {inv.invoiceNo}
               </span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-normal text-gray-500 uppercase tracking-wider block whitespace-nowrap">
                 {inv.paymentStage || 'Full'}
               </span>
             </div>
@@ -290,7 +290,7 @@ export const Invoices = () => {
           return (
             <div>
               <div
-                className="font-semibold text-xs text-gray-900 hover:text-[#0052cc] cursor-pointer flex items-center gap-1"
+                className="font-semibold text-[13px] text-gray-900 hover:text-[#0052cc] cursor-pointer flex items-center gap-1"
                 onClick={() => custId && navigate(`/customer/${custId}`)}
                 title="View customer profile"
               >
@@ -322,10 +322,8 @@ export const Invoices = () => {
           const isTax = inv.invoiceType === 'withGST';
           return (
             <span
-              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
-                isTax
-                  ? 'bg-blue-50 text-[#0052cc] border-blue-200'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              className={`text-xs font-semibold uppercase tracking-wider ${
+                isTax ? 'text-[#0052cc]' : 'text-emerald-700'
               }`}
             >
               {isTax ? 'TAX (GST)' : 'Commercial'}
@@ -340,7 +338,7 @@ export const Invoices = () => {
         headerClassName: 'text-right',
         cellClassName: 'text-right',
         render: (inv) => (
-          <span className="text-xs font-medium text-gray-700">
+          <span className="text-[13px] font-normal text-gray-700 whitespace-nowrap tabular-nums">
             {formatCurrency(inv.subtotal)}
           </span>
         ),
@@ -352,7 +350,7 @@ export const Invoices = () => {
         headerClassName: 'text-right',
         cellClassName: 'text-right',
         render: (inv) => (
-          <span className="text-xs font-medium text-gray-600">
+          <span className="text-[13px] font-normal text-gray-600 whitespace-nowrap tabular-nums">
             {inv.gstvalue > 0 ? formatCurrency(inv.gstvalue) : '—'}
           </span>
         ),
@@ -364,7 +362,7 @@ export const Invoices = () => {
         headerClassName: 'text-right',
         cellClassName: 'text-right',
         render: (inv) => (
-          <span className="text-sm font-bold text-gray-900">
+          <span className="text-sm font-semibold text-gray-900 whitespace-nowrap tabular-nums">
             {formatCurrency(inv.totalPrice)}
           </span>
         ),
@@ -373,8 +371,9 @@ export const Invoices = () => {
         key: 'actions',
         label: 'Actions',
         align: 'right',
+        width: '132px',
         headerClassName: 'text-right',
-        cellClassName: 'text-right',
+        cellClassName: 'text-right whitespace-nowrap',
         render: (inv) => {
           const invId = inv._id || inv.paymentId;
           const isDownloadingThis = downloadingId === invId;
@@ -440,19 +439,17 @@ export const Invoices = () => {
       />
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-gray-200/90 rounded-2xl p-4 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         {/* Search Bar Component */}
-        <div className="flex-1 min-w-[260px] max-w-md">
-          <SearchBar
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Search by invoice #, customer name, domain..."
-            className="w-full"
-          />
-        </div>
+        <SearchBar
+          value={searchQuery}
+          onChange={(val) => {
+            setSearchQuery(val);
+            setCurrentPage(1);
+          }}
+          placeholder="Search by invoice #, customer name, domain..."
+          className="max-w-md w-full"
+        />
 
         {/* Filter Dropdowns */}
         <div className="flex flex-wrap items-center gap-3">

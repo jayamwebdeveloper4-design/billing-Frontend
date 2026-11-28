@@ -138,7 +138,7 @@ export const GstSettings = () => {
   const hasChanges = JSON.stringify(settingsData) !== JSON.stringify(originalSettings);
 
   return (
-    <div className="max-w-[1440px] mx-auto p-2 md:p-2 space-y-6 animate-in fade-in duration-200">
+    <div className="max-w-[1440px] mx-auto space-y-6 animate-in fade-in duration-200">
       {/* Header UI component */}
       <Header
         title="GST & Company Settings"

@@ -229,10 +229,10 @@ const Layout = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className={`pt-24 px-md pb-gutter transition-all duration-300 min-w-0 ${
-        isCollapsed ? 'lg:pl-26 lg:pr-gutter' : 'lg:pl-70 lg:pr-gutter'
+      <main className={`pt-16 transition-all duration-300 min-w-0 ${
+        isCollapsed ? 'lg:pl-20' : 'lg:pl-64'
       }`}>
-        <div className="max-w-full p-1"> {/* Added p-1 to prevent shadow/border clipping */}
+        <div className="max-w-full p-4">
           <Outlet />
         </div>
       </main>

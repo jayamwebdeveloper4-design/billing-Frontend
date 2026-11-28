@@ -85,20 +85,20 @@ export const Customer = () => {
         label: 'EMAIL',
         render: (row) => {
           const emailStr = Array.isArray(row.email) ? row.email.join(', ') : (row.email || '-');
-          return <span className="text-gray-600 truncate max-w-[200px] block">{emailStr}</span>;
+          return <span className="text-[13px] font-normal text-gray-600 truncate max-w-[200px] block">{emailStr}</span>;
         },
       },
       {
         key: 'country',
         label: 'COUNTRY',
-        render: (row) => <span className="text-gray-600">{row.country || '-'}</span>,
+        render: (row) => <span className="text-[13px] font-normal text-gray-600">{row.country || '-'}</span>,
       },
       {
         key: 'phone',
         label: 'PHONE',
         render: (row) => {
           const phoneStr = Array.isArray(row.phone) ? row.phone.join(', ') : (row.phone || '-');
-          return <span className="text-gray-600 truncate max-w-[180px] block">{phoneStr}</span>;
+          return <span className="text-[13px] font-normal text-gray-600 truncate max-w-[180px] block tabular-nums">{phoneStr}</span>;
         },
       },
       {
@@ -139,7 +139,7 @@ export const Customer = () => {
   );
 
   return (
-    <div className="p-2 max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header layout component */}
       <Header
         title="Customer Management"

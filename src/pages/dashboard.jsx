@@ -48,7 +48,7 @@ const Dashboard = () => {
               <span className="material-symbols-outlined text-primary text-[20px] md:text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
             </div>
           </div>
-          <h1 className="text-lg xs:text-xl sm:text-2xl md:text-h1 font-bold text-on-surface mt-4 whitespace-nowrap" title={`₹${(kpis.totalRevenue || 0).toLocaleString()}`}>₹{(kpis.totalRevenue || 0).toLocaleString()}</h1>
+          <h1 className="text-lg xs:text-xl sm:text-2xl md:text-h1 font-medium tabular-nums text-on-surface mt-4 whitespace-nowrap" title={`₹${(kpis.totalRevenue || 0).toLocaleString()}`}>₹{(kpis.totalRevenue || 0).toLocaleString()}</h1>
         </div>
 
         {/* Total Products Card */}
@@ -59,7 +59,7 @@ const Dashboard = () => {
               <span className="material-symbols-outlined text-secondary text-[20px] md:text-[24px]">inventory_2</span>
             </div>
           </div>
-          <h1 className="text-xl sm:text-2xl md:text-h1 font-bold text-on-surface mt-4">{kpis.totalProducts}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-h1 font-medium tabular-nums text-on-surface mt-4">{kpis.totalProducts}</h1>
         </div>
 
         {/* Active Customers Card */}
@@ -70,7 +70,7 @@ const Dashboard = () => {
               <span className="material-symbols-outlined text-secondary text-[20px] md:text-[24px]">group</span>
             </div>
           </div>
-          <h1 className="text-xl sm:text-2xl md:text-h1 font-bold text-on-surface mt-4">{kpis.totalCustomers.toLocaleString()}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-h1 font-medium tabular-nums text-on-surface mt-4">{kpis.totalCustomers.toLocaleString()}</h1>
         </div>
 
         {/* Total Express Card */}
@@ -81,7 +81,7 @@ const Dashboard = () => {
               <span className="material-symbols-outlined text-error text-[20px] md:text-[24px]">payments</span>
             </div>
           </div>
-          <h1 className="text-lg xs:text-xl sm:text-2xl md:text-h1 font-bold text-on-surface mt-4 whitespace-nowrap" title={`₹${(kpis.totalExpress || 0).toLocaleString()}`}>₹{(kpis.totalExpress || 0).toLocaleString()}</h1>
+          <h1 className="text-lg xs:text-xl sm:text-2xl md:text-h1 font-medium tabular-nums text-on-surface mt-4 whitespace-nowrap" title={`₹${(kpis.totalExpress || 0).toLocaleString()}`}>₹{(kpis.totalExpress || 0).toLocaleString()}</h1>
         </div>
       </section>
 
@@ -91,7 +91,7 @@ const Dashboard = () => {
         <section className="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant p-md md:p-lg rounded-lg overflow-hidden">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md mb-lg md:mb-xl">
             <div>
-              <h3 className="font-h3 text-h3 text-on-surface">Revenue Trend</h3>
+              <h3 className="font-h3 text-h3 font-semibold text-on-surface">Revenue Trend</h3>
               <p className="font-body-sm text-body-sm text-on-surface-variant">Annual revenue analysis ({new Date().getFullYear()})</p>
             </div>
           </div>
@@ -124,7 +124,7 @@ const Dashboard = () => {
         {/* Recent Orders List */}
         <section className="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col min-w-0">
           <div className="p-md md:p-lg border-b border-outline-variant">
-            <h3 className="font-h3 text-h3 text-on-surface">Recent orders</h3>
+            <h3 className="font-h3 text-h3 font-semibold text-on-surface">Recent orders</h3>
           </div>
           <div className="grow overflow-y-auto max-h-[400px] custom-scrollbar">
             {recentOrders.length > 0 ? recentOrders.map((order, idx) => (
@@ -137,7 +137,7 @@ const Dashboard = () => {
                   <p className="font-body-sm text-body-sm text-on-surface-variant truncate">{order.customerName} • {new Date(order.orderDate).toLocaleDateString()}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="font-tabular-nums text-tabular-nums text-tertiary-container shrink-0 text-xs md:text-sm font-bold">₹{order.totalPrice.toLocaleString()}</span>
+                  <span className="font-tabular-nums text-tabular-nums text-tertiary-container shrink-0 text-xs md:text-sm font-medium">₹{order.totalPrice.toLocaleString()}</span>
                   <button
                     onClick={() => navigate('/customers', { state: { customerId: order.customerId } })}
                     className="text-[10px] text-primary font-bold hover:underline cursor-pointer"

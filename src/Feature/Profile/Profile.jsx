@@ -81,7 +81,7 @@ export const Profile = () => {
   }
 
   return (
-    <div className="max-w-[1440px] mx-auto p-2 md:p-2 space-y-6 animate-in fade-in duration-200">
+    <div className="max-w-[1440px] mx-auto space-y-6 animate-in fade-in duration-200">
       {/* Header UI Component */}
       <Header
         title="Admin Profile"

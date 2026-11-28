@@ -238,7 +238,7 @@ export const Expenses = () => {
     activeFilters.month === `${currentPeriod.year}-${currentPeriod.month.padStart(2, "0")}`;
 
   return (
-    <div className="max-w-[1440px] mx-auto p-2 md:p-2 space-y-6">
+    <div className="max-w-[1440px] mx-auto space-y-6">
       {/* View Navigation Tabs */}
       <nav
         aria-label="Expense and timesheet views"
@@ -287,7 +287,14 @@ export const Expenses = () => {
           />
 
           {/* Filter Bar & Search */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-gray-200/80 shadow-xs">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search expenses by name, category, amount..."
+              className="max-w-md w-full"
+            />
+
             <form
               onSubmit={handleApplyFilters}
               className="flex flex-wrap items-center gap-2.5"
@@ -360,13 +367,6 @@ export const Expenses = () => {
                 Clear
               </Button>
             </form>
-
-            <SearchBar
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Search expenses by name, category, amount..."
-              className="max-w-md w-full"
-            />
           </div>
 
           {/* Add / Edit Expense Modal */}

@@ -320,7 +320,7 @@ export const Product = () => {
   ];
 
   return (
-    <div className="max-w-[1440px] mx-auto p-2 md:p-2 space-y-4">
+    <div className="max-w-[1440px] mx-auto space-y-4">
       {/* Dynamic Breadcrumbs */}
       <Breadcrumbs />
 

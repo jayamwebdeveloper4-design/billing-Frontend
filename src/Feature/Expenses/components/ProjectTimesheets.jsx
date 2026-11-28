@@ -191,10 +191,10 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
             <Users className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <span className="font-bold text-gray-900 text-sm block">
+            <span className="font-semibold text-gray-900 text-sm block">
               {row.name || "Unnamed Employee"}
             </span>
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] font-normal text-gray-500">
               Joined {formatDate(row.joiningDate)}
             </span>
           </div>
@@ -246,7 +246,7 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
       label: "Salary",
       align: "right",
       render: (row) => (
-        <span className="font-bold text-gray-900 text-sm">
+        <span className="font-semibold text-gray-900 text-sm tabular-nums">
           {formatCurrency(row.salary)}
         </span>
       ),
@@ -280,10 +280,10 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
             <FolderKanban className="w-5 h-5 text-indigo-600" />
           </div>
           <div>
-            <span className="font-bold text-gray-900 text-sm block">
+            <span className="font-semibold text-gray-900 text-sm block">
               {row.projectName || "Unnamed Project"}
             </span>
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] font-normal text-gray-500 tabular-nums">
               Budget: {row.budget?.currency || "₹"} {row.budget?.amount ?? "—"}
             </span>
           </div>
@@ -341,7 +341,7 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
       label: "Expense (₹)",
       align: "right",
       render: (row) => (
-        <span className="font-bold text-gray-900 text-sm">
+        <span className="font-semibold text-gray-900 text-sm tabular-nums">
           {row.expenseAmount == null ? "—" : formatCurrency(row.expenseAmount)}
         </span>
       ),
@@ -377,7 +377,14 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
       />
 
       {/* Date Filter & Search Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-gray-200/80 shadow-xs">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <SearchBar
+          value={searchTerm}
+          onChange={onSearchTermChange}
+          placeholder={`Search ${view}...`}
+          className="max-w-md w-full"
+        />
+
         <form onSubmit={applyDateFilters} className="flex flex-wrap items-center gap-2.5">
           <div className="w-36">
             <select
@@ -430,13 +437,6 @@ export const ProjectTimesheets = ({ view, searchTerm, onSearchTermChange }) => {
             Clear
           </Button>
         </form>
-
-        <SearchBar
-          value={searchTerm}
-          onChange={onSearchTermChange}
-          placeholder={`Search ${view}...`}
-          className="max-w-md w-full"
-        />
       </div>
 
       {loadError && (

@@ -24,7 +24,7 @@ export const InputFeild = ({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-[11px] font-semibold text-gray-700 tracking-wider uppercase select-none">
+        <label className="block text-[11px] font-normal text-gray-700 tracking-wider uppercase select-none">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
           {hint && (

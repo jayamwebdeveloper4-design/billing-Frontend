@@ -35,6 +35,8 @@ export const baseApi = createApi({
     'Template',
     'User',
     'AdminProfile',
+    'Revenue',
+    'Report',
   ],
   endpoints: () => ({}),
 });
